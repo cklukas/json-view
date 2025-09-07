@@ -66,6 +66,8 @@ Download them from the repository's Releases page.
 json-view path/to/file1.json path/to/file2.json
 # or pretty-print and exit
 json-view --parse-only path/to/file.json
+# show version
+json-view -V
 # or read from standard input
 cat file1.json | json-view
 cat file1.json | json-view --parse-only
