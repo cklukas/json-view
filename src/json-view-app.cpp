@@ -98,7 +98,9 @@ public:
                 if (clickX < prefixWidth)
                 {
                     node->expanded = node->expanded ? False : True;
+                    const_cast<Node *>(node->jsonNode)->expanded = node->expanded;
                     update();
+                    drawView();
                 }
             }
         }
@@ -113,7 +115,9 @@ public:
                     if (node->expanded && node->childList)
                     {
                         node->expanded = False;
+                        const_cast<Node *>(node->jsonNode)->expanded = false;
                         update();
+                        drawView();
                     }
                     else if (node->parent)
                         focusNode(node->parent);
@@ -126,7 +130,9 @@ public:
                     if (!node->expanded && node->childList)
                     {
                         node->expanded = True;
+                        const_cast<Node *>(node->jsonNode)->expanded = true;
                         update();
+                        drawView();
                     }
                     else if (node->childList)
                         focusNode(static_cast<JsonTNode *>(node->childList));
@@ -180,6 +186,8 @@ private:
     void rebuildOutline();
     void doSearch(bool newTerm);
     void copySelection();
+    void updateStatusBar();
+    void syncOutlineExpansion();
 };
 
 static const ushort cmFind = 1000;
@@ -196,6 +204,64 @@ static const ushort cmLevel6 = 1106;
 static const ushort cmLevel7 = 1107;
 static const ushort cmLevel8 = 1108;
 static const ushort cmLevel9 = 1109;
+
+class JsonStatusLine : public TStatusLine
+{
+public:
+    JsonStatusLine(TRect r) : TStatusLine(r, *new TStatusDef(0, 0xFFFF, nullptr)) { setSearchState(SearchState()); }
+
+    void setSearchState(const SearchState &s)
+    {
+        disposeItems(items);
+        TStatusItem *chain = nullptr;
+        if (s.matches.empty())
+        {
+            auto *i1 = new TStatusItem("~F2~ Open", kbF2, cmOpen);
+            auto *i2 = new TStatusItem("~F3~ Find", kbF3, cmFind);
+            auto *i3 = new TStatusItem("~Ctrl+Q~ Quit", kbCtrlQ, cmQuit);
+            i1->next = i2;
+            i2->next = i3;
+            chain = i1;
+        }
+        else
+        {
+            std::string info = "search '" + s.term + "' " +
+                               std::to_string(s.currentIndex + 1) + "/" +
+                               std::to_string(s.matches.size());
+            auto *i1 = new TStatusItem(info.c_str(), kbNoKey, 0);
+            auto *i2 = new TStatusItem("~F3~ Next", kbF3, cmFindNext);
+            auto *i3 = new TStatusItem("~Shift+F3~ Prev", kbShiftF3, cmFindPrev);
+            auto *i4 = new TStatusItem("~Ctrl+Q~ Quit", kbCtrlQ, cmQuit);
+            i1->next = i2;
+            i2->next = i3;
+            i3->next = i4;
+            chain = i1;
+        }
+        items = chain;
+        defs->items = items;
+        drawView();
+    }
+
+private:
+    void disposeItems(TStatusItem *item)
+    {
+        while (item)
+        {
+            TStatusItem *next = item->next;
+            delete item;
+            item = next;
+        }
+    }
+};
+
+static void syncExpanded(JsonTNode *n)
+{
+    if (!n)
+        return;
+    n->expanded = n->jsonNode->expanded ? True : False;
+    for (JsonTNode *c = static_cast<JsonTNode *>(n->childList); c; c = static_cast<JsonTNode *>(c->next))
+        syncExpanded(c);
+}
 
 JsonViewApp::JsonViewApp(int argc, char **argv)
     : TProgInit(&JsonViewApp::initStatusLine, &JsonViewApp::initMenuBar, &TApplication::initDeskTop),
@@ -217,7 +283,7 @@ void JsonViewApp::handleEvent(TEvent &event)
             {
                 int level = event.keyDown.keyCode - '0';
                 expandToLevel(root.get(), level, 0);
-                outline->update();
+                syncOutlineExpansion();
             }
             clearEvent(event);
             return;
@@ -247,6 +313,7 @@ void JsonViewApp::handleEvent(TEvent &event)
             {
                 search.currentIndex = (search.currentIndex - 1 + search.matches.size()) % search.matches.size();
                 outline->focusNode(nodeMap[search.matches[search.currentIndex]]);
+                updateStatusBar();
             }
             break;
         case cmLevel0:
@@ -263,7 +330,7 @@ void JsonViewApp::handleEvent(TEvent &event)
             {
                 int level = event.message.command - cmLevel0;
                 expandToLevel(root.get(), level, 0);
-                outline->update();
+                syncOutlineExpansion();
             }
             break;
         case cmAbout:
@@ -310,6 +377,7 @@ bool JsonViewApp::loadFile(const std::string &name)
     root = buildTree(&j, name, nullptr, true);
     search = SearchState();
     rebuildOutline();
+    updateStatusBar();
     return true;
 }
 
@@ -323,6 +391,7 @@ void JsonViewApp::closeFile()
     root.reset();
     nodeMap.clear();
     search = SearchState();
+    updateStatusBar();
 }
 
 void JsonViewApp::rebuildOutline()
@@ -389,6 +458,20 @@ void JsonViewApp::rebuildOutline()
     outline->update();
 }
 
+void JsonViewApp::syncOutlineExpansion()
+{
+    if (!outline)
+        return;
+    syncExpanded(outline->root);
+    outline->update();
+    outline->drawView();
+}
+
+void JsonViewApp::updateStatusBar()
+{
+    static_cast<JsonStatusLine *>(statusLine)->setSearchState(search);
+}
+
 void JsonViewApp::doSearch(bool newTerm)
 {
     if (!outline)
@@ -427,6 +510,7 @@ void JsonViewApp::doSearch(bool newTerm)
     if (search.matches.empty())
     {
         messageBox("No matches", mfOKButton);
+        updateStatusBar();
         return;
     }
     const Node *n = search.matches[search.currentIndex];
@@ -434,12 +518,16 @@ void JsonViewApp::doSearch(bool newTerm)
     {
         auto it = nodeMap.find(p);
         if (it != nodeMap.end())
+        {
             it->second->expanded = True;
+            const_cast<Node *>(p)->expanded = true;
+        }
     }
     outline->update();
     outline->focusNode(nodeMap[n]);
     if (!newTerm)
         search.currentIndex = (search.currentIndex + 1) % search.matches.size();
+    updateStatusBar();
 }
 
 void JsonViewApp::copySelection()
@@ -459,39 +547,35 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
     r.b.y = r.a.y + 1;
     return new TMenuBar(r,
                         *new TSubMenu("~F~ile", hcNoContext) +
-                            *new TMenuItem("~O~pen", cmOpen, kbF2, hcNoContext) +
-                            *new TMenuItem("~C~lose", cmClose, kbF4, hcNoContext) +
+                            *new TMenuItem("~O~pen\tF2", cmOpen, kbF2, hcNoContext) +
+                            *new TMenuItem("~C~lose\tF4", cmClose, kbF4, hcNoContext) +
                             newLine() +
-                            *new TMenuItem("E~x~it", cmQuit, kbAltX, hcNoContext) +
+                            *new TMenuItem("E~x~it\tAlt+X", cmQuit, kbAltX, hcNoContext) +
                         *new TSubMenu("~E~dit", hcNoContext) +
-                            *new TMenuItem("~C~opy", cmCopy, kbCtrlC, hcNoContext) +
+                            *new TMenuItem("~C~opy\tCtrl+C", cmCopy, kbCtrlC, hcNoContext) +
                         *new TSubMenu("~S~earch", hcNoContext) +
-                            *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext) +
-                            *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext) +
-                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext) +
+                            *new TMenuItem("~F~ind\tCtrl+F", cmFind, kbCtrlF, hcNoContext) +
+                            *new TMenuItem("Find ~N~ext\tF3", cmFindNext, kbF3, hcNoContext) +
+                            *new TMenuItem("Find ~P~rev\tShift+F3", cmFindPrev, kbShiftF3, hcNoContext) +
                         *new TSubMenu("~V~iew", hcNoContext) +
-                            *new TMenuItem("Level ~0~", cmLevel0, kbAlt0, hcNoContext) +
-                            *new TMenuItem("Level ~1~", cmLevel1, kbAlt1, hcNoContext) +
-                            *new TMenuItem("Level ~2~", cmLevel2, kbAlt2, hcNoContext) +
-                            *new TMenuItem("Level ~3~", cmLevel3, kbAlt3, hcNoContext) +
-                            *new TMenuItem("Level ~4~", cmLevel4, kbAlt4, hcNoContext) +
-                            *new TMenuItem("Level ~5~", cmLevel5, kbAlt5, hcNoContext) +
-                            *new TMenuItem("Level ~6~", cmLevel6, kbAlt6, hcNoContext) +
-                            *new TMenuItem("Level ~7~", cmLevel7, kbAlt7, hcNoContext) +
-                            *new TMenuItem("Level ~8~", cmLevel8, kbAlt8, hcNoContext) +
-                            *new TMenuItem("Level ~9~", cmLevel9, kbAlt9, hcNoContext) +
+                            *new TMenuItem("Level ~0~\tAlt+0", cmLevel0, kbAlt0, hcNoContext) +
+                            *new TMenuItem("Level ~1~\tAlt+1", cmLevel1, kbAlt1, hcNoContext) +
+                            *new TMenuItem("Level ~2~\tAlt+2", cmLevel2, kbAlt2, hcNoContext) +
+                            *new TMenuItem("Level ~3~\tAlt+3", cmLevel3, kbAlt3, hcNoContext) +
+                            *new TMenuItem("Level ~4~\tAlt+4", cmLevel4, kbAlt4, hcNoContext) +
+                            *new TMenuItem("Level ~5~\tAlt+5", cmLevel5, kbAlt5, hcNoContext) +
+                            *new TMenuItem("Level ~6~\tAlt+6", cmLevel6, kbAlt6, hcNoContext) +
+                            *new TMenuItem("Level ~7~\tAlt+7", cmLevel7, kbAlt7, hcNoContext) +
+                            *new TMenuItem("Level ~8~\tAlt+8", cmLevel8, kbAlt8, hcNoContext) +
+                            *new TMenuItem("Level ~9~\tAlt+9", cmLevel9, kbAlt9, hcNoContext) +
                         *new TSubMenu("~H~elp", hcNoContext) +
-                            *new TMenuItem("~A~bout", cmAbout, kbF1, hcNoContext));
+                            *new TMenuItem("~A~bout\tF1", cmAbout, kbF1, hcNoContext));
 }
 
 TStatusLine *JsonViewApp::initStatusLine(TRect r)
 {
     r.a.y = r.b.y - 1;
-    return new TStatusLine(r,
-                           *new TStatusDef(0, 0xFFFF) +
-                               *new TStatusItem("~F2~ Open", kbF2, cmOpen) +
-                               *new TStatusItem("~F3~ Find", kbF3, cmFind) +
-                               *new TStatusItem("~Ctrl+Q~ Quit", kbCtrlQ, cmQuit));
+    return new JsonStatusLine(r);
 }
 
 int main(int argc, char **argv)
