@@ -23,6 +23,16 @@ useful for quickly inspecting large files directly from the command line.
 
 ## Building
 
+Use the provided Makefile for a simple build:
+
+```sh
+make
+```
+
+This runs CMake under the hood and places the binary in `build/json-view`.
+
+Alternatively, invoke CMake directly:
+
 ```sh
 cmake -S . -B build
 cmake --build build
@@ -34,6 +44,8 @@ Install the binary (defaults to `/usr/local`):
 
 ```sh
 sudo cmake --install build
+# or via Makefile
+sudo make install
 ```
 
 The install prefix can be changed at configure time using
