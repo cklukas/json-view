@@ -18,6 +18,8 @@ endif()
 
 project(json-view VERSION ${PROJECT_VERSION} LANGUAGES CXX)
 
+enable_testing()
+
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,6 +44,12 @@ target_include_directories(json-view PRIVATE ${CMAKE_SOURCE_DIR}/include ${CURSE
 target_compile_definitions(json-view PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(json-view PRIVATE ${CURSES_LIBRARIES})
+
+file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
+foreach(json ${EXAMPLE_JSON_FILES})
+  get_filename_component(name ${json} NAME)
+  add_test(NAME parse_${name} COMMAND $<TARGET_FILE:json-view> --parse-only ${json})
+endforeach()
 
 install(TARGETS json-view DESTINATION bin)
 install(FILES doc/json-view.1 DESTINATION share/man/man1)

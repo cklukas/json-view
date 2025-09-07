@@ -23,3 +23,6 @@ clean:
 run: build
 	./$(BUILD_DIR)/json-view $(ARGS)
 
+test: build
+	ctest --test-dir $(BUILD_DIR) --output-on-failure
+

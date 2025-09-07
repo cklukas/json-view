@@ -38,6 +38,14 @@ cmake -S . -B build
 cmake --build build
 ```
 
+## Testing
+
+After building, run the parser against the bundled example JSON file:
+
+```sh
+make test
+```
+
 ## Installation
 
 Install the binary (defaults to `/usr/local`):
