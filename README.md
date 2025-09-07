@@ -6,6 +6,11 @@ documents as an interactive tree using
 [nlohmann/json](https://github.com/nlohmann/json) library.  The viewer is
 useful for quickly inspecting large files directly from the command line.
 
+The repository also provides `json-view-app`, a
+[Turbo Vision](https://github.com/magiblot/tvision) based TUI that offers
+similar navigation and search capabilities through a classic menu driven
+interface.
+
 ```
 ▼ /tmp/test.json (📦 dictionary, 7 keys, 951 Bytes)
 ├── ☒ active: true
@@ -79,6 +84,7 @@ test.json   (?:help, q:quit)
 * [CMake](https://cmake.org) 3.20 or newer
 * The wide-character `ncursesw` library
 * [nlohmann/json](https://github.com/nlohmann/json) (bundled)
+* [Turbo Vision](https://github.com/magiblot/tvision) (fetched automatically for `json-view-app`)
 
 ## Building
 
@@ -88,7 +94,8 @@ Use the provided Makefile for a simple build:
 make
 ```
 
-This runs CMake under the hood and places the binary in `build/json-view`.
+This runs CMake under the hood and places the binaries in `build/json-view`
+and `build/json-view-app`.
 
 Alternatively, invoke CMake directly:
 
@@ -147,6 +154,8 @@ json-view --no-mouse file1.json
 json-view --ascii file1.json
 # or via environment variable
 JSON_VIEW_ASCII=1 json-view file1.json
+# launch the Turbo Vision interface and open files via the menu
+json-view-app
 ```
 
 If no file argument is supplied `json-view` will read a single JSON document

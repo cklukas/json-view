@@ -55,6 +55,21 @@ target_compile_definitions(json-view PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSIO
 
 target_link_libraries(json-view PRIVATE json_view_core ${CURSES_LIBRARIES})
 
+# Fetch Turbo Vision for the alternate frontend
+include(FetchContent)
+set(TV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TV_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  tvision
+  GIT_REPOSITORY https://github.com/magiblot/tvision.git
+  GIT_TAG 7ecc590ac59b163a876da50867c69bba605cebfc
+)
+FetchContent_MakeAvailable(tvision)
+
+add_executable(json-view-app src/json-view-app.cpp)
+target_include_directories(json-view-app PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(json-view-app PRIVATE json_view_core tvision::tvision)
+
 file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
 foreach(json ${EXAMPLE_JSON_FILES})
   get_filename_component(name ${json} NAME_WE)
@@ -67,6 +82,7 @@ foreach(json ${EXAMPLE_JSON_FILES})
 endforeach()
 
 install(TARGETS json-view RUNTIME DESTINATION bin)
+install(TARGETS json-view-app RUNTIME DESTINATION bin)
 install(TARGETS json_view_core ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 configure_file(doc/json-view.1.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.1 @ONLY)
 configure_file(doc/json-view.texi.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.texi @ONLY)
@@ -80,7 +96,8 @@ set(CPACK_PACKAGE_CONTACT "json-view maintainers")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Terminal JSON viewer")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "json-view maintainers")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libncursesw5 (>= 6.2) | libncurses6")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libncursesw5 (>= 6.2) | libncurses6, libtvision")
+set(CPACK_RPM_PACKAGE_REQUIRES "ncurses, tvision")
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 include(CPack)
