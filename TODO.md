@@ -28,8 +28,3 @@ The following tasks remain open.
 
   - **What to change:** Release workflow exists, but no CI on pushes/PRs.
   - **How to change:** Add a build + ctest workflow on push/pull_request for Ubuntu and macOS; install ncurses via Homebrew on macOS runner.
-
-### 6. Theming and Accessibility 🎨
-
-  - **What to change:** Single color scheme may be hard to read for some users.
-  - **How to change:** Add a monochrome mode and an alternative colorblind-friendly theme; allow toggling at runtime or via flags.

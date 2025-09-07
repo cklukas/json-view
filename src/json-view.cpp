@@ -17,31 +17,52 @@
 #include <deque>
 #include <cmath>
 #include <sstream>
+#include <chrono>
 #include <string>
 #include <vector>
 
-// Color scheme for easy customization - modify these values to change colors
+// Color scheme handling
 namespace ColorScheme
 {
-    // Foreground colors for each element type
-    constexpr int NORMAL_FG = COLOR_WHITE;
-    constexpr int SELECTION_FG = COLOR_BLACK;
-    constexpr int SEARCH_MATCH_FG = COLOR_YELLOW;
-    constexpr int SELECTION_MATCH_FG = COLOR_BLACK;
-    constexpr int TREE_STRUCTURE_FG = COLOR_BLUE;
-    constexpr int EXPAND_INDICATORS_FG = COLOR_MAGENTA;
-    constexpr int STRING_VALUES_FG = COLOR_GREEN;
-    constexpr int NUMBER_VALUES_FG = COLOR_GREEN;
-    constexpr int BOOLEAN_VALUES_FG = COLOR_YELLOW;
-    constexpr int NULL_VALUES_FG = COLOR_RED;
-    constexpr int KEY_NAMES_FG = COLOR_CYAN;
+    enum SchemeId
+    {
+        DEFAULT,
+        COLORBLIND,
+        MONOCHROME,
+        COUNT
+    };
 
-    // Background colors (-1 means use default terminal background)
-    constexpr int DEFAULT_BG = -1;
-    constexpr int SELECTION_BG = COLOR_CYAN;
-    constexpr int SELECTION_MATCH_BG = COLOR_GREEN;
+    struct Scheme
+    {
+        int NORMAL_FG;
+        int SELECTION_FG;
+        int SEARCH_MATCH_FG;
+        int SELECTION_MATCH_FG;
+        int TREE_STRUCTURE_FG;
+        int EXPAND_INDICATORS_FG;
+        int STRING_VALUES_FG;
+        int NUMBER_VALUES_FG;
+        int BOOLEAN_VALUES_FG;
+        int NULL_VALUES_FG;
+        int KEY_NAMES_FG;
+        int DEFAULT_BG;
+        int SELECTION_BG;
+        int SELECTION_MATCH_BG;
+        const char *name;
+        const char *description;
+    };
 
-    // Color pair indices (internal use only)
+    static const Scheme schemes[COUNT] = {
+        {COLOR_WHITE, COLOR_BLACK, COLOR_YELLOW, COLOR_BLACK, COLOR_BLUE, COLOR_MAGENTA,
+         COLOR_GREEN, COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_CYAN, -1, COLOR_CYAN,
+         COLOR_GREEN, "default", "Balanced palette with distinct types"},
+        {COLOR_WHITE, COLOR_BLACK, COLOR_BLACK, COLOR_BLACK, COLOR_WHITE, COLOR_WHITE,
+         COLOR_BLUE, COLOR_MAGENTA, COLOR_CYAN, COLOR_RED, COLOR_WHITE, -1, COLOR_YELLOW,
+         COLOR_GREEN, "colorblind", "High-contrast, colorblind-friendly palette"},
+        {COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
+         COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, -1, -1, -1,
+         "none", "Colors disabled; using terminal defaults"}};
+
     enum ColorPairs
     {
         NORMAL_TEXT = 1,
@@ -57,7 +78,7 @@ namespace ColorScheme
         KEY_NAMES
     };
 
-    constexpr int STATUS_BAR = SELECTION_BG_PAIR; // Status bar uses same as selection
+    inline const int STATUS_BAR = SELECTION_BG_PAIR;
 }
 
 // Simple console JSON viewer using nlohmann::json and ncurses.
@@ -78,6 +99,63 @@ using json = nlohmann::json;
 
 // When true, render tree and icons using plain ASCII instead of Unicode
 static bool asciiMode = false;
+static ColorScheme::SchemeId currentScheme = ColorScheme::DEFAULT;
+
+static ColorScheme::SchemeId parseScheme(const std::string &name)
+{
+    std::string n;
+    n.resize(name.size());
+    std::transform(name.begin(), name.end(), n.begin(), ::tolower);
+    if (n == "colorblind")
+        return ColorScheme::COLORBLIND;
+    if (n == "none" || n == "mono" || n == "monochrome")
+        return ColorScheme::MONOCHROME;
+    return ColorScheme::DEFAULT;
+}
+
+static void applyColorScheme(ColorScheme::SchemeId scheme, bool &colours)
+{
+    currentScheme = scheme;
+    if (scheme == ColorScheme::MONOCHROME || !has_colors())
+    {
+        colours = false;
+        attrset(A_NORMAL);
+        return;
+    }
+    colours = true;
+    start_color();
+    use_default_colors();
+    const auto &cs = ColorScheme::schemes[scheme];
+    init_pair(ColorScheme::NORMAL_TEXT, cs.NORMAL_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::SELECTION_BG_PAIR, cs.SELECTION_FG, cs.SELECTION_BG);
+    init_pair(ColorScheme::SEARCH_MATCH, cs.SEARCH_MATCH_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::SELECTION_MATCH_BG_PAIR, cs.SELECTION_MATCH_FG, cs.SELECTION_MATCH_BG);
+    init_pair(ColorScheme::TREE_STRUCTURE, cs.TREE_STRUCTURE_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::EXPAND_INDICATORS, cs.EXPAND_INDICATORS_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::STRING_VALUES, cs.STRING_VALUES_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::NUMBER_VALUES, cs.NUMBER_VALUES_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::BOOLEAN_VALUES, cs.BOOLEAN_VALUES_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::NULL_VALUES, cs.NULL_VALUES_FG, cs.DEFAULT_BG);
+    init_pair(ColorScheme::KEY_NAMES, cs.KEY_NAMES_FG, cs.DEFAULT_BG);
+}
+
+// Build a short status message describing the current color scheme
+static std::string getColorSchemeStatusMessage(bool colours)
+{
+    if (!colours || currentScheme == ColorScheme::MONOCHROME)
+    {
+        return std::string("Color scheme: none — Colors disabled");
+    }
+    const auto &cs = ColorScheme::schemes[currentScheme];
+    std::string msg = "Color scheme: ";
+    msg += cs.name ? cs.name : "unknown";
+    if (cs.description && std::strlen(cs.description) > 0)
+    {
+        msg += " — ";
+        msg += cs.description;
+    }
+    return msg;
+}
 
 // A Node represents a single entry in the tree.  Each node holds a
 // pointer into the underlying JSON document and a list of child nodes
@@ -112,6 +190,19 @@ static json reconstructJson(const Node *node);
 static std::string formatFileSize(size_t size);
 static void printFormattedJson(const json &j, int indent = 0);
 static json parseJsonWithSpecialNumbers(const std::string &contents);
+
+// Transient status message state and helpers
+static std::string transientStatusMessage;
+static std::chrono::steady_clock::time_point transientStatusExpiresAt;
+static inline bool hasTransientStatus()
+{
+    return !transientStatusMessage.empty() && std::chrono::steady_clock::now() < transientStatusExpiresAt;
+}
+static inline void showTransientStatus(const std::string &msg, int duration_ms)
+{
+    transientStatusMessage = msg;
+    transientStatusExpiresAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(duration_ms);
+}
 
 // Calculate the display width of a UTF-8 string (handles Unicode properly)
 static int getDisplayWidth(const std::string &str)
@@ -989,6 +1080,7 @@ static void showHelp()
         "  S                Search values",
         "  n / N            Next / previous search match",
         "  c                Clear search results",
+        "  t                Cycle color scheme",
         copyLine,
         "  ?                Show this help screen",
         "  q                Quit the program",
@@ -1112,8 +1204,8 @@ static void showUsage(const char *progName)
 {
     std::cout << "json-view - Interactive JSON viewer with tree navigation\n\n";
     std::cout << "USAGE:\n";
-    std::cout << "  " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii] [file1.json] [file2.json] ...\n";
-    std::cout << "  cat data.json | " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii]\n\n";
+    std::cout << "  " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii] [--color-scheme NAME] [file1.json] [file2.json] ...\n";
+    std::cout << "  cat data.json | " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii] [--color-scheme NAME]\n\n";
     std::cout << "DESCRIPTION:\n";
     std::cout << "  A simple console JSON viewer using ncurses for interactive tree navigation.\n";
     std::cout << "  Pass JSON file names as arguments to open them, or pipe JSON into the program\n";
@@ -1131,6 +1223,7 @@ static void showUsage(const char *progName)
     std::cout << "  S         Search values\n";
     std::cout << "  n/N       Next/previous search match\n";
     std::cout << "  c         Clear search results\n";
+    std::cout << "  t         Cycle color scheme\n";
     std::cout << "  y         Copy selected JSON to clipboard\n";
     std::cout << "  ?         Show help screen\n";
     std::cout << "  q         Quit the program\n";
@@ -1140,8 +1233,10 @@ static void showUsage(const char *progName)
     std::cout << "  -V, --version     Show version information\n";
     std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n";
     std::cout << "      --validate    Validate JSON input and exit with status\n";
-    std::cout << "      --no-mouse    Disable mouse support\n";
-    std::cout << "      --ascii       Use ASCII tree/indicator characters (or set JSON_VIEW_ASCII=1)\n\n";
+    std::cout << "      --no-mouse    Disable mouse support (or set JSON_VIEW_NO_MOUSE=1)\n";
+    std::cout << "      --ascii       Use ASCII tree/indicator characters (or set JSON_VIEW_ASCII=1)\n";
+    std::cout << "      --color-scheme NAME  Select color scheme (default, colorblind, none)\n"
+              << "                     (or set JSON_VIEW_COLOR_SCHEME)\n\n";
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << progName << " config.json data.json\n";
     std::cout << "  " << progName << " --parse-only config.json\n";
@@ -1433,6 +1528,20 @@ static void drawStatusBar(int statusRow, size_t selected, const std::vector<cons
     std::string status;
     clickableHints.clear();
 
+    // If a transient message is active, show it and return
+    if (hasTransientStatus())
+    {
+        status = transientStatusMessage;
+        if (getDisplayWidth(status) > cols)
+        {
+            status = status.substr(0, cols);
+        }
+        mvhline(statusRow, 0, ' ', cols);
+        mvaddnstr(statusRow, 0, status.c_str(), cols);
+        mvchgat(statusRow, 0, getDisplayWidth(status), colours ? COLOR_PAIR(ColorScheme::STATUS_BAR) : A_REVERSE, 0, NULL);
+        return;
+    }
+
     // Show path of selected node
     {
         const Node *cur = visible[selected];
@@ -1552,6 +1661,16 @@ int main(int argc, char **argv)
     {
         asciiMode = true;
     }
+    const char *envNoMouse = std::getenv("JSON_VIEW_NO_MOUSE");
+    if (envNoMouse && *envNoMouse)
+    {
+        enableMouse = false;
+    }
+    const char *envScheme = std::getenv("JSON_VIEW_COLOR_SCHEME");
+    if (envScheme && *envScheme)
+    {
+        currentScheme = parseScheme(envScheme);
+    }
     std::vector<const char *> files;
     for (int i = 1; i < argc; ++i)
     {
@@ -1586,6 +1705,17 @@ int main(int argc, char **argv)
         if (strcmp(arg, "--ascii") == 0)
         {
             asciiMode = true;
+            continue;
+        }
+        if (strcmp(arg, "--color-scheme") == 0 && i + 1 < argc)
+        {
+            currentScheme = parseScheme(argv[++i]);
+            continue;
+        }
+        const char *prefix = "--color-scheme=";
+        if (strncmp(arg, prefix, strlen(prefix)) == 0)
+        {
+            currentScheme = parseScheme(arg + strlen(prefix));
             continue;
         }
         files.push_back(arg);
@@ -1711,30 +1841,8 @@ int main(int argc, char **argv)
         mousemask(ALL_MOUSE_EVENTS, NULL);
     }
 
-    // Enable UTF-8 support in ncurses
-    if (has_colors())
-    {
-        start_color();
-    }
-    // Initialise colours if available
-    bool colours = has_colors();
-    if (colours)
-    {
-        start_color();
-        use_default_colors();
-        // Initialize color pairs using the defined color scheme
-        init_pair(ColorScheme::NORMAL_TEXT, ColorScheme::NORMAL_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::SELECTION_BG_PAIR, ColorScheme::SELECTION_FG, ColorScheme::SELECTION_BG);
-        init_pair(ColorScheme::SEARCH_MATCH, ColorScheme::SEARCH_MATCH_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::SELECTION_MATCH_BG_PAIR, ColorScheme::SELECTION_MATCH_FG, ColorScheme::SELECTION_MATCH_BG);
-        init_pair(ColorScheme::TREE_STRUCTURE, ColorScheme::TREE_STRUCTURE_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::EXPAND_INDICATORS, ColorScheme::EXPAND_INDICATORS_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::STRING_VALUES, ColorScheme::STRING_VALUES_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::NUMBER_VALUES, ColorScheme::NUMBER_VALUES_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::BOOLEAN_VALUES, ColorScheme::BOOLEAN_VALUES_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::NULL_VALUES, ColorScheme::NULL_VALUES_FG, ColorScheme::DEFAULT_BG);
-        init_pair(ColorScheme::KEY_NAMES, ColorScheme::KEY_NAMES_FG, ColorScheme::DEFAULT_BG);
-    }
+    bool colours = false;
+    applyColorScheme(currentScheme, colours);
 
     // Enable window resize detection
     struct sigaction sa;
@@ -1970,6 +2078,21 @@ int main(int argc, char **argv)
         previousScrollOffset = scrollOffset;
 
         refresh();
+
+        // Use non-blocking input when a transient status is active so it can expire
+        if (hasTransientStatus())
+        {
+            auto now = std::chrono::steady_clock::now();
+            auto remaining = transientStatusExpiresAt - now;
+            int wait_ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(remaining).count();
+            if (wait_ms < 1)
+                wait_ms = 1;
+            timeout(wait_ms);
+        }
+        else
+        {
+            timeout(-1); // blocking
+        }
 
         // Process input
         int ch = getch();
@@ -2346,6 +2469,17 @@ int main(int argc, char **argv)
             search.currentIndex = 0;
             needFullRedraw = true; // Search highlights need to be cleared
             break;
+        case 't':
+        {
+            currentScheme = static_cast<ColorScheme::SchemeId>((static_cast<int>(currentScheme) + 1) % ColorScheme::COUNT);
+            applyColorScheme(currentScheme, colours);
+
+            // Schedule a transient status message for 3 seconds without blocking
+            showTransientStatus(getColorSchemeStatusMessage(colours), 3000);
+
+            needFullRedraw = true; // Redraw with new scheme and status message
+        }
+            break;
         case 'y':
             // Copy current selection to clipboard
             if (selected < visible.size())
@@ -2354,22 +2488,12 @@ int main(int argc, char **argv)
                 json jsonData = reconstructJson(selectedNode);
                 std::string jsonStr = jsonData.dump(2); // Pretty-print with 2-space indentation
 
-                int rows, cols;
-                getmaxyx(stdscr, rows, cols);
-
                 copyToClipboard(jsonStr);
 
-                // Show appropriate status message
+                // Queue a transient status message (3s) without blocking input
                 std::string message = getClipboardStatusMessage();
-                mvprintw(rows - 1, 0, "%s", message.c_str());
-                clrtoeol();
-                refresh();
-
-                // Wait briefly to show the message
-                timeout(1000);
-                getch();
-                timeout(-1);           // Reset to blocking mode
-                needFullRedraw = true; // Status line was overwritten, need full redraw
+                showTransientStatus(message, 3000);
+                needFullRedraw = true;
             }
             break;
         case '?':

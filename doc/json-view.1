@@ -21,11 +21,17 @@ Show usage information.
 Display version information and exit.
 .TP
 .B --no-mouse
-Disable mouse support and rely on keyboard input only.
+Disable mouse support and rely on keyboard input only. This can also be
+enabled by setting the environment variable JSON_VIEW_NO_MOUSE=1.
 .TP
 .B --ascii
 Render tree branches and icons using plain ASCII characters. This can also be
 enabled by setting the environment variable JSON_VIEW_ASCII=1.
+.TP
+.B --color-scheme \fIname\fR
+Select a color scheme. Valid values are \fBdefault\fR, \fBcolorblind\fR and
+\fBnone\fR to disable all colors. This can also be set via the environment
+variable JSON_VIEW_COLOR_SCHEME.
 .SH KEYS
 The interface responds to the following keys:
 .TP
@@ -49,6 +55,9 @@ Jump to the next or previous search match.
 .TP
 .B c
 Clear current search results.
+.TP
+.B t
+Cycle the active color scheme.
 .TP
 .B + / -
 Expand all or collapse all nodes.

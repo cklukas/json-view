@@ -92,9 +92,14 @@ Display a short usage summary and exit.
 Show version information and exit.
 @item --no-mouse
 Disable mouse support and use only the keyboard.
+This can also be enabled by setting @code{JSON_VIEW_NO_MOUSE=1}.
 @item --ascii
 Render the tree using plain ASCII characters instead of Unicode glyphs.
 This can also be enabled by setting @code{JSON_VIEW_ASCII=1}.
+@item --color-scheme=@var{name}
+Select a color scheme.  Available values are @code{default},
+@code{colorblind}, and @code{none} to disable all colors.  This can also be
+set by @code{JSON_VIEW_COLOR_SCHEME}.
 @end table
 
 @node Key Bindings
@@ -114,6 +119,7 @@ This can also be enabled by setting @code{JSON_VIEW_ASCII=1}.
 @item @kbd{S} -- search values
 @item @kbd{n}/@kbd{N} -- next/previous search match
 @item @kbd{c} -- clear current search results
+@item @kbd{t} -- cycle color scheme
 @item @kbd{y} -- copy selected JSON to the clipboard (OSC 52 when available)
 @item @kbd{?} -- show the help screen
 @item @kbd{q} -- quit

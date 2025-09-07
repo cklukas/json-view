@@ -52,6 +52,7 @@ test.json   (?:help, q:quit)
 │    S                Search values                                                 │
 │    n / N            Next / previous search match                                  │
 │    c                Clear search results                                          │
+│    t                Cycle color scheme                                            │
 │    y                Copy selected JSON to clipboard                               │
 │    ?                Show this help screen                                         │
 │    q                Quit the program                                              │
@@ -69,6 +70,8 @@ test.json   (?:help, q:quit)
 * `--parse-only` mode for pretty-printing JSON without the interactive viewer.
 * `--validate` mode for non-interactive JSON validation.
 * Optional ASCII-only mode for environments with limited Unicode support.
+* Multiple color schemes including colorblind-friendly and monochrome modes; cycle with `t`.
+* Configuration via environment variables like `JSON_VIEW_NO_MOUSE`, `JSON_VIEW_ASCII`, and `JSON_VIEW_COLOR_SCHEME`.
 
 ## Requirements
 
