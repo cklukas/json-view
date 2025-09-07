@@ -28,3 +28,9 @@ json-view path/to/file.json
 ```
 
 The viewer uses the arrow keys to navigate and `q` to quit.
+
+## Features
+
+*   Navigate JSON files using arrow keys.
+*   Collapsible nodes.
+*   Mouse support for navigation.

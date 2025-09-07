@@ -1,0 +1,52 @@
+\input texinfo
+
+@setfilename json-view.info
+@settitle json-view
+
+@copying
+This document is distributed under the terms of the MIT License.
+@end copying
+
+@titlepage
+@title json-view
+@subtitle A small terminal JSON viewer
+@author John Doe <johndoe@example.com>
+@end titlepage>
+
+@contents
+
+@ifnottex
+@node Top
+@top json-view
+
+@insertcopying
+@end ifnottex
+
+@menu
+* Introduction::
+* Invoking json-view::
+* Concept Index::
+@end menu
+
+@node Introduction
+@chapter Introduction
+
+`json-view` is a small terminal JSON viewer using ncurses. It allows navigating JSON files with arrow keys.
+
+@node Invoking json-view
+@chapter Invoking json-view
+
+To view a JSON file, pass the path to the file as an argument:
+
+@example
+json-view path/to/file.json
+@end example
+
+The viewer uses the arrow keys to navigate and `q` to quit.
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
+
+@bye

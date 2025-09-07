@@ -133,7 +133,7 @@ public:
     }
 
 private:
-    nlohmann::detail::json_sax_dom_parser<json> dom_parser;
+    nlohmann::detail::json_sax_dom_parser<json, decltype(nlohmann::detail::input_adapter(std::declval<std::string&>()))> dom_parser;
 };
 
 // A Node represents a single entry in the tree.  Each node holds a
