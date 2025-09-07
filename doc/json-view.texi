@@ -1,17 +1,25 @@
 \input texinfo
 
 @setfilename json-view.info
-@settitle json-view
+@settitle json-view Manual
 
 @copying
-This document is distributed under the terms of the MIT License.
+This manual is for @code{json-view}, a terminal JSON viewer.
+Copyright (C) 2025 C. Klukas
 @end copying
+
+@dircategory Development
+@direntry
+* json-view: (json-view).  Terminal JSON viewer.
+@end direntry
 
 @titlepage
 @title json-view
-@subtitle A small terminal JSON viewer
-@author John Doe <johndoe@example.com>
-@end titlepage>
+@subtitle Terminal JSON viewer
+@author C. Klukas
+@page
+@insertcopying
+@end titlepage
 
 @contents
 
@@ -24,25 +32,81 @@ This document is distributed under the terms of the MIT License.
 
 @menu
 * Introduction::
-* Invoking json-view::
+* Installation::
+* Usage::
+* Command-line Options::
+* Key Bindings::
 * Concept Index::
 @end menu
 
 @node Introduction
 @chapter Introduction
+@cindex introduction
+@cindex JSON viewer
 
-`json-view` is a small terminal JSON viewer using ncurses. It allows navigating JSON files with arrow keys.
+@code{json-view} displays JSON documents as an interactive tree.  It uses the
+@code{ncurses} library and supports both keyboard and mouse navigation.  Use it
+to quickly explore large documents directly from your terminal.
 
-@node Invoking json-view
-@chapter Invoking json-view
+@node Installation
+@chapter Installation
+@cindex installation
 
-To view a JSON file, pass the path to the file as an argument:
+Building from source requires a C++20 compiler, CMake, the wide-character
+@code{ncursesw} library and @code{nlohmann/json}.  To build and install run:
 
 @example
-json-view path/to/file.json
+cmake -S . -B build
+cmake --build build
+sudo cmake --install build
 @end example
 
-The viewer uses the arrow keys to navigate and `q` to quit.
+The install prefix can be changed by adding
+@code{-DCMAKE_INSTALL_PREFIX=/usr} when configuring CMake.
+
+@node Usage
+@chapter Usage
+@cindex usage
+
+Invoke @code{json-view} with one or more file names:
+
+@example
+json-view example.json another.json
+@end example
+
+If no file is supplied the program reads a single document from standard
+input, making it easy to use in pipelines:
+
+@example
+cat data.json | json-view
+@end example
+
+@node Command-line Options
+@chapter Command-line Options
+@cindex options
+
+@table @code
+@item -h, --help
+Display a short usage summary and exit.
+@item --version
+Show version information and exit.
+@end table
+
+@node Key Bindings
+@chapter Key Bindings
+@cindex key bindings
+@cindex navigation
+@cindex search
+
+@itemize @bullet
+@item @kbd{Up}/@kbd{Down} -- move the selection
+@item @kbd{Left}/@kbd{Right} -- collapse or expand nodes
+@item @kbd{s} -- search keys
+@item @kbd{S} -- search values
+@item @kbd{n}/@kbd{N} -- next/previous search match
+@item @kbd{h} -- show the help screen
+@item @kbd{q} -- quit
+@end itemize
 
 @node Concept Index
 @unnumbered Concept Index
