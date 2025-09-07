@@ -38,27 +38,27 @@ test.json   (?:help, q:quit)
 
 ```
 
-                        ┌───────────────────────────────────────────────────────────────────────────────────┐
-                        │  JSON Viewer Key Bindings:                                                        │
-                        │                                                                                   │
-                        │    ↑/↓              Move selection up or down                                     │
-                        │    PgUp/PgDn        Move one page up or down                                      │
-                        │    Home/End         Jump to first or last item                                    │
-                        │    ←                Collapse the current item or go to its parent                 │
-                        │    →                Expand the current item                                       │
-                        │    +                Expand all items                                              │
-                        │    -                Collapse all items                                            │
-                        │    0-9              Expand to nesting level (0=collapse all, 1=first level, etc.) │
-                        │    s                Search keys                                                   │
-                        │    S                Search values                                                 │
-                        │    n / N            Next / previous search match                                  │
-                        │    c                Clear search results                                          │
-                        │    y                Copy selected JSON to clipboard                               │
-                        │    ?                Show this help screen                                         │
-                        │    q                Quit the program                                              │
-                        │                                                                                   │
-                        │  Press any key to return...                                                       │
-                        └───────────────────────────────────────────────────────────────────────────────────┘
+    ┌───────────────────────────────────────────────────────────────────────────────────┐
+    │  JSON Viewer Key Bindings:                                                        │
+    │                                                                                   │
+    │    ↑/↓              Move selection up or down                                     │
+    │    PgUp/PgDn        Move one page up or down                                      │
+    │    Home/End         Jump to first or last item                                    │
+    │    ←                Collapse the current item or go to its parent                 │
+    │    →                Expand the current item                                       │
+    │    +                Expand all items                                              │
+    │    -                Collapse all items                                            │
+    │    0-9              Expand to nesting level (0=collapse all, 1=first level, etc.) │
+    │    s                Search keys                                                   │
+    │    S                Search values                                                 │
+    │    n / N            Next / previous search match                                  │
+    │    c                Clear search results                                          │
+    │    y                Copy selected JSON to clipboard                               │
+    │    ?                Show this help screen                                         │
+    │    q                Quit the program                                              │
+    │                                                                                   │
+    │  Press any key to return...                                                       │
+    └───────────────────────────────────────────────────────────────────────────────────┘
 
 
 ```
