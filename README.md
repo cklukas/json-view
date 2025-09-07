@@ -51,6 +51,15 @@ sudo make install
 The install prefix can be changed at configure time using
 `-DCMAKE_INSTALL_PREFIX=/usr`.
 
+## Releases
+
+Tagged releases on GitHub provide pre-built packages:
+
+* Linux `.deb` and `.rpm`
+* `.tar.gz` archives for Linux and macOS containing `json-view`, docs, and an `install.sh` helper
+
+Download them from the repository's Releases page.
+
 ## Usage
 
 ```sh
