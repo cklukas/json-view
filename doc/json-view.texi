@@ -101,10 +101,16 @@ Show version information and exit.
 @itemize @bullet
 @item @kbd{Up}/@kbd{Down} -- move the selection
 @item @kbd{Left}/@kbd{Right} -- collapse or expand nodes
+@item @kbd{PgUp}/@kbd{PgDn} -- move one page up or down
+@item @kbd{Home}/@kbd{End} -- jump to the first or last visible item
+@item @kbd{+}/@kbd{-} -- expand all / collapse all
+@item @kbd{0-9} -- expand to a specific nesting level (0 collapses all)
 @item @kbd{s} -- search keys
 @item @kbd{S} -- search values
 @item @kbd{n}/@kbd{N} -- next/previous search match
-@item @kbd{h} -- show the help screen
+@item @kbd{c} -- clear current search results
+@item @kbd{y} -- copy selected JSON to the clipboard (OSC 52 when available)
+@item @kbd{?} -- show the help screen
 @item @kbd{q} -- quit
 @end itemize
 

@@ -28,11 +28,32 @@ Move the selection.
 .B Left/Right
 Collapse or expand the current node.
 .TP
+.B PgUp/PgDn
+Move one page up or down.
+.TP
+.B Home/End
+Jump to the first or last visible item.
+.TP
 .B s / S
 Search keys or values.
 .TP
 .B n / N
 Jump to the next or previous search match.
+.TP
+.B c
+Clear current search results.
+.TP
+.B + / -
+Expand all or collapse all nodes.
+.TP
+.B 0-9
+Expand to a specific nesting level (0 collapses all).
+.TP
+.B y
+Copy the selected JSON subtree to the clipboard (via OSC 52 when supported).
+.TP
+.B ?
+Show the in-application help screen.
 .TP
 .B q
 Quit the program.

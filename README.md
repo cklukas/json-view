@@ -54,9 +54,15 @@ quit.
 
 * `↑/↓` – move the selection
 * `→/←` – expand or collapse nodes
+* `PgUp`/`PgDn` – page up/down
+* `Home`/`End` – jump to first/last item
+* `+` / `-` – expand all / collapse all
+* `0-9` – expand to nesting level (`0` collapses all)
 * `s` – search keys, `S` – search values
-* `n`/`N` – next/previous search match
-* `h` – show a help screen
+* `n` / `N` – next / previous search match
+* `c` – clear search results
+* `y` – copy selected JSON to clipboard (OSC 52 when supported)
+* `?` – show a help screen
 * `q` – quit the viewer
 
 ## Documentation
