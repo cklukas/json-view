@@ -1,23 +1,50 @@
 
-.TH "JSON-VIEW" "1" "September 2025" "json-view 1.0" "User Commands"
-.SH "NAME"
-json-view - a small terminal JSON viewer
-.SH "SYNOPSIS"
+.TH "JSON-VIEW" "1" "May 2025" "json-view 1.0" "User Commands"
+.SH NAME
+json-view \- terminal JSON viewer
+.SH SYNOPSIS
 .B json-view
-.I file.json
-.SH "DESCRIPTION"
+.RI [ FILE\ .\|.\|. ]
+.SH DESCRIPTION
 .B json-view
-is a small terminal JSON viewer using ncurses. It allows navigating JSON files with arrow keys.
-.SH "OPTIONS"
-This tool currently does not support any command-line options.
-.SH "USAGE"
-To view a JSON file, pass the path to the file as an argument:
-.PP
+displays JSON data in a navigable tree using the
+.BR ncurses (3x)
+library.  If no
+.I FILE
+is provided the program reads a single document from standard input.
+.SH OPTIONS
+.TP
+.B -h , --help
+Show usage information.
+.TP
+.B --version
+Display version information and exit.
+.SH KEYS
+The interface responds to the following keys:
+.TP
+.B Up/Down
+Move the selection.
+.TP
+.B Left/Right
+Collapse or expand the current node.
+.TP
+.B s / S
+Search keys or values.
+.TP
+.B n / N
+Jump to the next or previous search match.
+.TP
+.B q
+Quit the program.
+.SH SEE ALSO
+The Texinfo manual for
 .B json-view
-.I path/to/file.json
-.PP
-The viewer uses the arrow keys to navigate and 'q' to quit.
-.SH "BUGS"
-No known bugs.
-.SH "AUTHOR"
-John Doe <johndoe@example.com>
+may be viewed with
+.BR info (1):
+.RS
+.nf
+info json-view
+.fi
+.RE
+.SH AUTHOR
+C. Klukas

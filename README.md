@@ -1,36 +1,74 @@
 # json-view
 
-A small terminal JSON viewer using [ncurses](https://invisible-island.net/ncurses/) and [nlohmann/json](https://github.com/nlohmann/json).
+`json-view` is a small, fast JSON viewer for the terminal.  It renders
+documents as an interactive tree using
+[ncurses](https://invisible-island.net/ncurses/) and the
+[nlohmann/json](https://github.com/nlohmann/json) library.  The viewer is
+useful for quickly inspecting large files directly from the command line.
 
-## Build
+## Features
 
-This project uses [CMake](https://cmake.org) and requires a C++20 compiler and the wide-character ncurses library.
+* Expand and collapse nodes with the arrow keys or the mouse.
+* Search keys or values and jump between matches.
+* Open multiple files or read JSON from standard input.
+* Optional mouse support for selection and expansion.
+
+## Requirements
+
+* A C++20 compliant compiler
+* [CMake](https://cmake.org) 3.20 or newer
+* The wide-character `ncursesw` library
+* [nlohmann/json](https://github.com/nlohmann/json) (bundled)
+
+## Building
 
 ```sh
 cmake -S . -B build
 cmake --build build
 ```
 
-## Install
+## Installation
 
-To install the `json-view` binary into `/usr/local/bin` (the default prefix on macOS and most Linux systems):
+Install the binary (defaults to `/usr/local`):
 
 ```sh
 sudo cmake --install build
 ```
 
-You can choose a different prefix by setting `-DCMAKE_INSTALL_PREFIX=/usr` when configuring CMake.
+The install prefix can be changed at configure time using
+`-DCMAKE_INSTALL_PREFIX=/usr`.
 
 ## Usage
 
-```
+```sh
 json-view path/to/file.json
+# or read from standard input
+cat file.json | json-view
 ```
 
-The viewer uses the arrow keys to navigate and `q` to quit.
+If no file argument is supplied `json-view` will read a single JSON document
+from standard input.  The interface uses the arrow keys to navigate and `q` to
+quit.
 
-## Features
+### Key bindings
 
-*   Navigate JSON files using arrow keys.
-*   Collapsible nodes.
-*   Mouse support for navigation.
+* `↑/↓` – move the selection
+* `→/←` – expand or collapse nodes
+* `s` – search keys, `S` – search values
+* `n`/`N` – next/previous search match
+* `h` – show a help screen
+* `q` – quit the viewer
+
+## Documentation
+
+After installation the command line help is available through the manual and
+Texinfo pages:
+
+```sh
+man json-view
+info json-view
+```
+
+## License
+
+`json-view` is released under the terms of the [MIT License](LICENSE).
