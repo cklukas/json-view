@@ -2158,167 +2158,53 @@ int main(int argc, char **argv)
         case 'n':
             if (!search.term.empty() && !search.matches.empty())
             {
-                // Find the next match that comes after the currently selected node in document order
                 const Node *currentNode = visible[selected];
-                Node *nextMatch = nullptr;
-                int nextMatchIndex = -1;
-
-                // Strategy: Find the first match in document order that comes after current position
-                // Since matches are collected in document order, we need to find the right position
-
-                // First, determine where we are in the document relative to matches
-                for (size_t i = 0; i < search.matches.size(); ++i)
+                auto it = std::find(search.matches.begin(), search.matches.end(), currentNode);
+                if (it != search.matches.end())
                 {
-                    const Node *matchNode = search.matches[i];
-
-                    // Check if this match comes after the current node in document order
-                    // We do this by checking if the match appears later in a full traversal
-
-                    // Collect all nodes in document order to determine position
-                    std::vector<const Node *> allNodes;
-                    for (Node *r : roots)
+                    search.currentIndex = std::distance(search.matches.begin(), it);
+                }
+                search.currentIndex = (search.currentIndex + 1) % search.matches.size();
+                Node *nextMatch = const_cast<Node *>(search.matches[search.currentIndex]);
+                expandPath(nextMatch);
+                visible.clear();
+                for (Node *r : roots)
+                    collectVisible(r, visible);
+                for (size_t i = 0; i < visible.size(); ++i)
+                {
+                    if (visible[i] == nextMatch)
                     {
-                        std::function<void(const Node *)> collectAll = [&](const Node *node)
-                        {
-                            allNodes.push_back(node);
-                            for (const Node *child : node->children)
-                            {
-                                collectAll(child);
-                            }
-                        };
-                        collectAll(r);
-                    }
-
-                    // Find positions of current node and match node
-                    int currentPos = -1, matchPos = -1;
-                    for (size_t j = 0; j < allNodes.size(); ++j)
-                    {
-                        if (allNodes[j] == currentNode)
-                            currentPos = j;
-                        if (allNodes[j] == matchNode)
-                            matchPos = j;
-                    }
-
-                    if (matchPos > currentPos)
-                    {
-                        // This match comes after current position
-                        nextMatch = const_cast<Node *>(matchNode);
-                        nextMatchIndex = i;
+                        selected = i;
                         break;
                     }
                 }
-
-                // If no match found after current position, wrap to first match
-                if (!nextMatch && !search.matches.empty())
-                {
-                    nextMatch = const_cast<Node *>(search.matches[0]);
-                    nextMatchIndex = 0;
-                }
-
-                if (nextMatch)
-                {
-                    search.currentIndex = nextMatchIndex;
-                    expandPath(nextMatch);
-                    visible.clear();
-                    for (Node *r : roots)
-                        collectVisible(r, visible);
-                    for (size_t i = 0; i < visible.size(); ++i)
-                    {
-                        if (visible[i] == nextMatch)
-                        {
-                            selected = i;
-                            break;
-                        }
-                    }
-                    needFullRedraw = true; // Tree expansion may have changed
-                }
+                needFullRedraw = true; // Tree expansion may have changed
             }
             break;
         case 'N':
             if (!search.term.empty() && !search.matches.empty())
             {
-                // Find the previous match that comes before the currently selected node in document order
                 const Node *currentNode = visible[selected];
-                Node *prevMatch = nullptr;
-                int prevMatchIndex = -1;
-
-                // Strategy: Find the last match in document order that comes before current position
-
-                // Collect all nodes in document order to determine position
-                std::vector<const Node *> allNodes;
+                auto it = std::find(search.matches.begin(), search.matches.end(), currentNode);
+                if (it != search.matches.end())
+                {
+                    search.currentIndex = std::distance(search.matches.begin(), it);
+                }
+                search.currentIndex = (search.currentIndex - 1 + search.matches.size()) % search.matches.size();
+                Node *prevMatch = const_cast<Node *>(search.matches[search.currentIndex]);
+                expandPath(prevMatch);
+                visible.clear();
                 for (Node *r : roots)
+                    collectVisible(r, visible);
+                for (size_t i = 0; i < visible.size(); ++i)
                 {
-                    std::function<void(const Node *)> collectAll = [&](const Node *node)
+                    if (visible[i] == prevMatch)
                     {
-                        allNodes.push_back(node);
-                        for (const Node *child : node->children)
-                        {
-                            collectAll(child);
-                        }
-                    };
-                    collectAll(r);
-                }
-
-                // Find position of current node
-                int currentPos = -1;
-                for (size_t j = 0; j < allNodes.size(); ++j)
-                {
-                    if (allNodes[j] == currentNode)
-                    {
-                        currentPos = j;
+                        selected = i;
                         break;
                     }
                 }
-
-                // Look for matches that come before the current position
-                for (int i = search.matches.size() - 1; i >= 0; --i)
-                {
-                    const Node *matchNode = search.matches[i];
-
-                    // Find position of this match node
-                    int matchPos = -1;
-                    for (size_t j = 0; j < allNodes.size(); ++j)
-                    {
-                        if (allNodes[j] == matchNode)
-                        {
-                            matchPos = j;
-                            break;
-                        }
-                    }
-
-                    if (matchPos < currentPos && matchPos >= 0)
-                    {
-                        // This match comes before current position
-                        prevMatch = const_cast<Node *>(matchNode);
-                        prevMatchIndex = i;
-                        break;
-                    }
-                }
-
-                // If no match found before current position, wrap to last match
-                if (!prevMatch && !search.matches.empty())
-                {
-                    prevMatch = const_cast<Node *>(search.matches[search.matches.size() - 1]);
-                    prevMatchIndex = search.matches.size() - 1;
-                }
-
-                if (prevMatch)
-                {
-                    search.currentIndex = prevMatchIndex;
-                    expandPath(prevMatch);
-                    visible.clear();
-                    for (Node *r : roots)
-                        collectVisible(r, visible);
-                    for (size_t i = 0; i < visible.size(); ++i)
-                    {
-                        if (visible[i] == prevMatch)
-                        {
-                            selected = i;
-                            break;
-                        }
-                    }
-                    needFullRedraw = true; // Tree expansion may have changed
-                }
+                needFullRedraw = true; // Tree expansion may have changed
             }
             break;
         case 'c':

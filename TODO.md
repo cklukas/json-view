@@ -69,7 +69,7 @@ Since you can use the latest library version, you can use its official, powerful
 
 -----
 
-### 2\. Fix Search Navigation Performance ⚡
+### 2\. Fix Search Navigation Performance ⚡ ✅
 
   * **What to change:** The logic for `case 'n'` and `case 'N'` in the main loop is inefficient and will lag on large files.
   * **How to change:** Stop rebuilding the `allNodes` list on every key press. Instead, leverage the `search.matches` vector which already contains all results in document order. Find the current item's position and then simply find the next or previous item in the `search.matches` vector, wrapping around if needed.
