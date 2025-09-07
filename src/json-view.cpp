@@ -13,6 +13,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -144,7 +145,7 @@ struct Node
 {
     const json *value = nullptr;  // pointer into the parsed JSON
     Node *parent = nullptr;       // parent node (null for roots)
-    std::vector<Node *> children; // child nodes (empty for leaves)
+    std::vector<std::unique_ptr<Node>> children; // child nodes (empty for leaves)
     std::string key;              // property name or array index
     bool expanded = false;        // true if children are visible
     bool isDummyRoot = false;     // true if this node represents a file
@@ -152,12 +153,11 @@ struct Node
 };
 
 // Forward declarations
-static Node *buildTree(const json *j, const std::string &key,
-                       Node *parent, bool dummy);
+static std::unique_ptr<Node> buildTree(const json *j, const std::string &key,
+                                       Node *parent, bool dummy);
 static void collectVisible(const Node *node, std::vector<const Node *> &out);
 static std::string buildPrefix(const Node *node);
 static std::string shortenPath(const std::string &path, int maxWidth);
-static std::string arrayPreview(const json *v, int maxWidth);
 static std::string getTypeIcon(const Node *node);
 static std::string getContentLabel(const Node *node, int maxWidth = 80);
 static void expandAll(Node *node);
@@ -224,10 +224,10 @@ static std::string getContentLabelWithSearch(const Node *node, const SearchState
 
 // Build a tree of Node objects mirroring the structure of a JSON
 // document.  Each Node stores a pointer to the original JSON value.
-static Node *buildTree(const json *j, const std::string &key,
-                       Node *parent, bool dummy)
+static std::unique_ptr<Node> buildTree(const json *j, const std::string &key,
+                                       Node *parent, bool dummy)
 {
-    Node *node = new Node();
+    auto node = std::make_unique<Node>();
     node->value = j;
     node->parent = parent;
     node->key = key;
@@ -243,8 +243,8 @@ static Node *buildTree(const json *j, const std::string &key,
         {
             const std::string &childKey = it.key();
             const json &childVal = it.value();
-            Node *child = buildTree(&childVal, childKey, node, false);
-            node->children.push_back(child);
+            auto child = buildTree(&childVal, childKey, node.get(), false);
+            node->children.push_back(std::move(child));
         }
     }
     else if (j->is_array())
@@ -254,8 +254,8 @@ static Node *buildTree(const json *j, const std::string &key,
         for (auto it = j->begin(); it != j->end(); ++it, ++idx)
         {
             std::string childKey = "[" + std::to_string(idx) + "]";
-            Node *child = buildTree(&(*it), childKey, node, false);
-            node->children.push_back(child);
+            auto child = buildTree(&(*it), childKey, node.get(), false);
+            node->children.push_back(std::move(child));
         }
     }
     // Mark last child in the list.  This information is used to draw
@@ -274,9 +274,9 @@ static void collectVisible(const Node *node, std::vector<const Node *> &out)
     out.push_back(node);
     if (node->expanded)
     {
-        for (const Node *child : node->children)
+        for (const auto &child : node->children)
         {
-            collectVisible(child, out);
+            collectVisible(child.get(), out);
         }
     }
 }
@@ -439,16 +439,8 @@ static std::string getContentLabel(const Node *node, int maxWidth)
         size_t count = v->size();
         std::string baseLabel = node->key + " (list, " + std::to_string(count) + (count == 1 ? " item)" : " items)");
 
-        // If not expanded, show array values inline
-        if (!node->expanded)
-        {
-            std::string preview = arrayPreview(v, maxWidth - getDisplayWidth(baseLabel));
-            return baseLabel + preview;
-        }
-        else
-        {
-            return baseLabel;
-        }
+        // Array previews are rendered directly in drawLine; return base label only
+        return baseLabel;
     }
     else if (v->is_string())
     {
@@ -545,68 +537,16 @@ static std::string getContentLabelWithSearch(const Node *node, const SearchState
 }
 
 // Generate a preview of array values for inline display
-static std::string arrayPreview(const json *arr, int maxWidth)
-{
-    if (!arr->is_array() || arr->empty())
-        return "";
-
-    std::string preview = ": ";
-    bool first = true;
-    int remainingWidth = maxWidth - getDisplayWidth(preview);
-
-    for (const auto &item : *arr)
-    {
-        if (!first)
-        {
-            preview += ", ";
-            remainingWidth -= 2;
-        }
-        first = false;
-
-        std::string itemStr;
-        if (item.is_string())
-        {
-            itemStr = "\"" + item.get<std::string>() + "\"";
-        }
-        else if (item.is_number())
-        {
-            itemStr = item.dump();
-        }
-        else if (item.is_boolean())
-        {
-            itemStr = item.get<bool>() ? "true" : "false";
-        }
-        else if (item.is_null())
-        {
-            itemStr = "null";
-        }
-        else
-        {
-            itemStr = item.is_object() ? "{...}" : "[...]";
-        }
-
-        // Check if adding this item would exceed the remaining width
-        if (getDisplayWidth(itemStr) > remainingWidth - 5)
-        { // Reserve space for ", ..."
-            preview += "...";
-            break;
-        }
-
-        preview += itemStr;
-        remainingWidth -= getDisplayWidth(itemStr);
-    }
-
-    return preview;
-}
+// (arrayPreview removed; previews are rendered directly in drawLine)
 
 // Expand every branch of the given node.  Primitive leaves remain
 // unchanged.  This function recurses through all descendants.
 static void expandAll(Node *node)
 {
     node->expanded = true;
-    for (Node *child : node->children)
+    for (auto &child : node->children)
     {
-        expandAll(child);
+        expandAll(child.get());
     }
 }
 
@@ -619,9 +559,9 @@ static void collapseAll(Node *node, bool keepRoot)
     {
         node->expanded = false;
     }
-    for (Node *child : node->children)
+    for (auto &child : node->children)
     {
-        collapseAll(child, false);
+        collapseAll(child.get(), false);
     }
 }
 
@@ -634,9 +574,9 @@ static void expandToLevel(Node *node, int targetLevel, int currentLevel)
     {
         // Collapse everything, including root nodes
         node->expanded = false;
-        for (Node *child : node->children)
+        for (auto &child : node->children)
         {
-            collapseAll(child, false);
+            collapseAll(child.get(), false);
         }
         return;
     }
@@ -645,9 +585,9 @@ static void expandToLevel(Node *node, int targetLevel, int currentLevel)
     if (node->isDummyRoot)
     {
         node->expanded = true; // Always expand dummy roots when target > 0
-        for (Node *child : node->children)
+        for (auto &child : node->children)
         {
-            expandToLevel(child, targetLevel, 1); // Children of dummy root are at level 1
+            expandToLevel(child.get(), targetLevel, 1); // Children of dummy root are at level 1
         }
         return;
     }
@@ -657,18 +597,18 @@ static void expandToLevel(Node *node, int targetLevel, int currentLevel)
     {
         // We haven't reached the target depth yet - expand and recurse
         node->expanded = true;
-        for (Node *child : node->children)
+        for (auto &child : node->children)
         {
-            expandToLevel(child, targetLevel, currentLevel + 1);
+            expandToLevel(child.get(), targetLevel, currentLevel + 1);
         }
     }
     else
     {
         // We're at or beyond the target depth - collapse
         node->expanded = false;
-        for (Node *child : node->children)
+        for (auto &child : node->children)
         {
-            collapseAll(child, false);
+            collapseAll(child.get(), false);
         }
     }
 }
@@ -722,9 +662,9 @@ static void searchTree(const Node *node, const std::string &term,
         }
     }
     // Continue search through children
-    for (const Node *child : node->children)
+    for (const auto &child : node->children)
     {
-        searchTree(child, term, searchKeys, searchValues, out);
+        searchTree(child.get(), term, searchKeys, searchValues, out);
     }
 }
 
@@ -1039,16 +979,25 @@ static void showHelp()
         mvaddstr(startRow + 1 + i, startCol + 1, "  "); // Left padding
 
         // Handle the copy line with special coloring if not supported
-        if (i == 14 && !clipboardSupported)
-        { // Copy line index (updated for new line)
-            // Split the line to color the "no terminal support" part differently
-            std::string mainPart = "  y                Copy selected JSON to clipboard";
-            std::string noSupportPart = " (no terminal support)";
-
-            addstr(mainPart.c_str());
-            attron(A_DIM); // Gray out the unsupported part
-            addstr(noSupportPart.c_str());
-            attroff(A_DIM);
+        // Find the line by content rather than relying on a fixed index
+        if (!clipboardSupported && lines[i].find("Copy selected JSON") != std::string::npos)
+        {
+            // Dim only the explanatory suffix (starting with " (") if present
+            const std::string &full = lines[i];
+            size_t suffixPos = full.find(" (");
+            if (suffixPos != std::string::npos)
+            {
+                std::string mainPart = full.substr(0, suffixPos);
+                std::string suffix = full.substr(suffixPos);
+                addstr(mainPart.c_str());
+                attron(A_DIM); // Gray out the unsupported/explanatory part
+                addstr(suffix.c_str());
+                attroff(A_DIM);
+            }
+            else
+            {
+                addstr(full.c_str());
+            }
         }
         else
         {
@@ -1152,6 +1101,7 @@ static void drawLine(int row, int idx, const Node *node, size_t selected,
     int availableWidth = cols - prefixWidth - 5;   // -5 for some margin
     std::string typeIcon = getTypeIcon(node);
     std::string contentLabel = getContentLabelWithSearch(node, search, availableWidth);
+    int contentWidthForHighlight = getDisplayWidth(contentLabel);
 
     // Add expand/collapse indicator with subtle Unicode triangles
     std::string indicator;
@@ -1235,110 +1185,97 @@ static void drawLine(int row, int idx, const Node *node, size_t selected,
         // Special handling for arrays with preview
         if (v->is_array() && !node->expanded && !node->isDummyRoot)
         {
-            // Split the content into base label and preview parts
-            size_t previewPos = contentLabel.find(": ");
-            if (previewPos != std::string::npos)
+            // Build base label (key + count info)
+            size_t count = v->size();
+            std::string baseLabel = node->key + " (list, " + std::to_string(count) + (count == 1 ? " item)" : " items)");
+
+            // If array is empty, just render the base label
+            if (v->empty())
             {
-                // Render the base label (key + count info) in normal color
-                std::string baseLabel = contentLabel.substr(0, previewPos + 2);
                 addnstr(baseLabel.c_str(), baseLabel.length());
-
-                // Parse and render the preview values with proper colors
-                std::string previewContent = contentLabel.substr(previewPos + 2);
-                size_t pos = 0;
-
-                while (pos < previewContent.length())
-                {
-                    // Skip whitespace and commas
-                    while (pos < previewContent.length() &&
-                           (previewContent[pos] == ' ' || previewContent[pos] == ','))
-                    {
-                        addch(previewContent[pos]);
-                        pos++;
-                    }
-
-                    if (pos >= previewContent.length())
-                        break;
-
-                    // Check if we hit the "..." terminator
-                    if (pos + 2 < previewContent.length() &&
-                        previewContent.substr(pos, 3) == "...")
-                    {
-                        addnstr("...", 3);
-                        break;
-                    }
-
-                    // Parse the next value
-                    size_t valueStart = pos;
-                    int colorPair = ColorScheme::NORMAL_TEXT;
-
-                    if (previewContent[pos] == '"')
-                    {
-                        // String value - find closing quote
-                        pos++; // Skip opening quote
-                        while (pos < previewContent.length() && previewContent[pos] != '"')
-                        {
-                            if (previewContent[pos] == '\\')
-                                pos++; // Skip escaped chars
-                            pos++;
-                        }
-                        if (pos < previewContent.length())
-                            pos++; // Skip closing quote
-                        colorPair = ColorScheme::STRING_VALUES;
-                    }
-                    else if (std::isdigit(previewContent[pos]) || previewContent[pos] == '-')
-                    {
-                        // Number value
-                        while (pos < previewContent.length() &&
-                               (std::isdigit(previewContent[pos]) ||
-                                previewContent[pos] == '.' ||
-                                previewContent[pos] == '-' ||
-                                previewContent[pos] == 'e' ||
-                                previewContent[pos] == 'E'))
-                        {
-                            pos++;
-                        }
-                        colorPair = ColorScheme::NUMBER_VALUES;
-                    }
-                    else if (previewContent.substr(pos, 4) == "true")
-                    {
-                        pos += 4;
-                        colorPair = ColorScheme::BOOLEAN_VALUES;
-                    }
-                    else if (previewContent.substr(pos, 5) == "false")
-                    {
-                        pos += 5;
-                        colorPair = ColorScheme::BOOLEAN_VALUES;
-                    }
-                    else if (previewContent.substr(pos, 4) == "null")
-                    {
-                        pos += 4;
-                        colorPair = ColorScheme::NULL_VALUES;
-                    }
-                    else if (previewContent.substr(pos, 5) == "{...}" ||
-                             previewContent.substr(pos, 5) == "[...]")
-                    {
-                        pos += 5;
-                        colorPair = ColorScheme::NORMAL_TEXT;
-                    }
-                    else
-                    {
-                        // Unknown, advance one character
-                        pos++;
-                        colorPair = ColorScheme::NORMAL_TEXT;
-                    }
-
-                    // Render the parsed value with appropriate color
-                    std::string valueStr = previewContent.substr(valueStart, pos - valueStart);
-                    attron(COLOR_PAIR(colorPair));
-                    addnstr(valueStr.c_str(), valueStr.length());
-                    attroff(COLOR_PAIR(colorPair));
-                }
+                contentWidthForHighlight = getDisplayWidth(baseLabel);
             }
             else
             {
-                // No preview found, render normally
-                addnstr(contentLabel.c_str(), contentLabel.length());
+                // Render base label
+                addnstr(baseLabel.c_str(), baseLabel.length());
+                int baseWidth = getDisplayWidth(baseLabel);
+
+                // Render preview directly from JSON with colors
+                addstr(": ");
+
+                int previewPrintedWidth = 2; // account for ": "
+                int previewBudget = std::max(0, availableWidth - baseWidth); // budget for preview part
+
+                bool first = true;
+                for (const auto &item : *v)
+                {
+                    std::string token;
+                    int colorPair = ColorScheme::NORMAL_TEXT;
+
+                    if (item.is_string())
+                    {
+                        token = "\"" + item.get<std::string>() + "\"";
+                        colorPair = ColorScheme::STRING_VALUES;
+                    }
+                    else if (item.is_number())
+                    {
+                        token = item.dump();
+                        colorPair = ColorScheme::NUMBER_VALUES;
+                    }
+                    else if (item.is_boolean())
+                    {
+                        token = item.get<bool>() ? "true" : "false";
+                        colorPair = ColorScheme::BOOLEAN_VALUES;
+                    }
+                    else if (item.is_null())
+                    {
+                        token = "null";
+                        colorPair = ColorScheme::NULL_VALUES;
+                    }
+                    else
+                    {
+                        token = item.is_object() ? "{...}" : "[...]";
+                        colorPair = ColorScheme::NORMAL_TEXT;
+                    }
+
+                    int sepWidth = first ? 0 : 2; // ", "
+                    int tokenWidth = getDisplayWidth(token);
+
+                    // Reserve space for trailing ellipsis if we can't fit all items
+                    if (previewPrintedWidth + sepWidth + tokenWidth > previewBudget - 3)
+                    {
+                        // Not enough space; add ellipsis if we have printed something
+                        if (previewPrintedWidth < previewBudget)
+                        {
+                            addnstr("...", 3);
+                            previewPrintedWidth += 3;
+                        }
+                        break;
+                    }
+
+                    if (!first)
+                    {
+                        addstr(", ");
+                        previewPrintedWidth += 2;
+                    }
+
+                    if (colorPair != ColorScheme::NORMAL_TEXT)
+                    {
+                        attron(COLOR_PAIR(colorPair));
+                        addnstr(token.c_str(), token.length());
+                        attroff(COLOR_PAIR(colorPair));
+                    }
+                    else
+                    {
+                        addnstr(token.c_str(), token.length());
+                    }
+
+                    previewPrintedWidth += tokenWidth;
+                    first = false;
+                }
+
+                contentWidthForHighlight = baseWidth + previewPrintedWidth;
             }
         }
         else if (!v->is_object() && !v->is_array() && !node->isDummyRoot)
@@ -1391,7 +1328,7 @@ static void drawLine(int row, int idx, const Node *node, size_t selected,
     }
 
     // Calculate actual rendered text length for proper highlighting
-    int actualTextLen = pos + getDisplayWidth(contentLabel);
+    int actualTextLen = pos + contentWidthForHighlight;
 
     // Apply selection/match highlighting with minimal extra space
     if (isSelected || isMatch)
@@ -1538,7 +1475,7 @@ int main(int argc, char **argv)
     }
 
     // Parse JSON files or standard input
-    std::vector<Node *> roots;
+    std::vector<std::unique_ptr<Node>> roots;
     std::vector<json> jsonDocs;
     bool hadFileArgs = false;
     for (int i = 1; i < argc; ++i)
@@ -1569,9 +1506,9 @@ int main(int argc, char **argv)
                 jsonDocs.push_back(std::move(doc));
                 const json *ptr = &jsonDocs.back();
                 // Use the filename as the dummy root key
-                Node *root = buildTree(ptr, filename, nullptr, true);
+                auto root = buildTree(ptr, filename, nullptr, true);
                 // Mark last root later
-                roots.push_back(root);
+                roots.push_back(std::move(root));
             }
             else
             {
@@ -1604,8 +1541,8 @@ int main(int argc, char **argv)
                 {
                     jsonDocs.push_back(std::move(doc));
                     const json *ptr = &jsonDocs.back();
-                    Node *root = buildTree(ptr, "(stdin)", nullptr, true);
-                    roots.push_back(root);
+                    auto root = buildTree(ptr, "(stdin)", nullptr, true);
+                    roots.push_back(std::move(root));
                 }
                 else
                 {
@@ -1690,9 +1627,9 @@ int main(int argc, char **argv)
     {
         // Collect visible nodes
         visible.clear();
-        for (Node *r : roots)
+        for (auto &r : roots)
         {
-            collectVisible(r, visible);
+            collectVisible(r.get(), visible);
         }
         if (visible.empty())
         {
@@ -1970,9 +1907,9 @@ int main(int argc, char **argv)
         break;
         case '+':
         case '=':
-            for (Node *r : roots)
+            for (auto &r : roots)
             {
-                expandAll(r);
+                expandAll(r.get());
             }
             needFullRedraw = true; // Tree structure changed significantly
             break;
@@ -1987,9 +1924,9 @@ int main(int argc, char **argv)
             }
 
             // Collapse all nodes but preserve path to selected node
-            for (Node *r : roots)
+            for (auto &r : roots)
             {
-                collapseAll(r, true);
+                collapseAll(r.get(), true);
             }
 
             // Ensure the path to the selected node remains expanded
@@ -1999,9 +1936,9 @@ int main(int argc, char **argv)
 
                 // Rebuild visible list and find new selection index
                 visible.clear();
-                for (Node *r : roots)
+                for (auto &r : roots)
                 {
-                    collectVisible(r, visible);
+                    collectVisible(r.get(), visible);
                 }
 
                 // Find the selected node in the new visible list
@@ -2039,9 +1976,9 @@ int main(int argc, char **argv)
             }
 
             // Apply expansion level to all roots
-            for (Node *r : roots)
+            for (auto &r : roots)
             {
-                expandToLevel(r, level, 0);
+                expandToLevel(r.get(), level, 0);
             }
 
             // Ensure the path to the selected node remains visible if possible
@@ -2066,9 +2003,9 @@ int main(int argc, char **argv)
 
                 // Rebuild visible list and find new selection index
                 visible.clear();
-                for (Node *r : roots)
+                for (auto &r : roots)
                 {
-                    collectVisible(r, visible);
+                    collectVisible(r.get(), visible);
                 }
 
                 // Find the selected node in the new visible list, or keep it at 0 if not found
@@ -2097,9 +2034,9 @@ int main(int argc, char **argv)
             search.searchValues = false;
             search.matches.clear();
             search.currentIndex = 0;
-            for (Node *r : roots)
+            for (auto &r : roots)
             {
-                searchTree(r, lower, true, false, search.matches);
+                searchTree(r.get(), lower, true, false, search.matches);
             }
             if (!search.matches.empty())
             {
@@ -2108,8 +2045,8 @@ int main(int argc, char **argv)
                 expandPath(match);
                 // Update visible list and selected index
                 visible.clear();
-                for (Node *r : roots)
-                    collectVisible(r, visible);
+                for (auto &r : roots)
+                    collectVisible(r.get(), visible);
                 for (size_t i = 0; i < visible.size(); ++i)
                 {
                     if (visible[i] == match)
@@ -2132,17 +2069,17 @@ int main(int argc, char **argv)
             search.searchValues = true;
             search.matches.clear();
             search.currentIndex = 0;
-            for (Node *r : roots)
+            for (auto &r : roots)
             {
-                searchTree(r, lower, false, true, search.matches);
+                searchTree(r.get(), lower, false, true, search.matches);
             }
             if (!search.matches.empty())
             {
                 Node *match = const_cast<Node *>(search.matches[0]);
                 expandPath(match);
                 visible.clear();
-                for (Node *r : roots)
-                    collectVisible(r, visible);
+                for (auto &r : roots)
+                    collectVisible(r.get(), visible);
                 for (size_t i = 0; i < visible.size(); ++i)
                 {
                     if (visible[i] == match)
@@ -2168,8 +2105,8 @@ int main(int argc, char **argv)
                 Node *nextMatch = const_cast<Node *>(search.matches[search.currentIndex]);
                 expandPath(nextMatch);
                 visible.clear();
-                for (Node *r : roots)
-                    collectVisible(r, visible);
+                for (auto &r : roots)
+                    collectVisible(r.get(), visible);
                 for (size_t i = 0; i < visible.size(); ++i)
                 {
                     if (visible[i] == nextMatch)
@@ -2194,8 +2131,8 @@ int main(int argc, char **argv)
                 Node *prevMatch = const_cast<Node *>(search.matches[search.currentIndex]);
                 expandPath(prevMatch);
                 visible.clear();
-                for (Node *r : roots)
-                    collectVisible(r, visible);
+                for (auto &r : roots)
+                    collectVisible(r.get(), visible);
                 for (size_t i = 0; i < visible.size(); ++i)
                 {
                     if (visible[i] == prevMatch)
@@ -2265,19 +2202,6 @@ int main(int argc, char **argv)
     // End curses mode
     endwin();
     // Free nodes
-    for (Node *r : roots)
-    {
-        // Recursively delete nodes (post‑order)
-        std::vector<Node *> stack;
-        stack.push_back(r);
-        while (!stack.empty())
-        {
-            Node *n = stack.back();
-            stack.pop_back();
-            for (Node *c : n->children)
-                stack.push_back(c);
-            delete n;
-        }
-    }
+    // unique_ptr takes care of cleanup of the entire tree
     return 0;
 }

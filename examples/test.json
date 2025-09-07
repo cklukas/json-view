@@ -1,0 +1,45 @@
+{
+  "name": "Sample Dataset",
+  "version": 1,
+  "active": true,
+  "metadata": {
+    "description": "Nested structures with various types",
+    "tags": ["json", "test", "viewer"],
+    "contributors": [
+      { "name": "Alice", "roles": ["author", "reviewer"], "active": true },
+      { "name": "Bob",   "roles": ["maintainer"],             "active": false }
+    ]
+  },
+  "stats": {
+    "count": 42,
+    "ratio": 0.61803398875,
+    "invalid_values": {
+      "nan": NaN,
+      "pos_inf": Infinity,
+      "neg_inf": -Infinity
+    }
+  },
+  "items": [
+    null,
+    false,
+    true,
+    0,
+    -123.456,
+    "a string with \"quotes\" and unicode ✓",
+    [1, 2, 3, {"nested": ["x", "y", {"z": null}]}],
+    {"empty_obj": {}, "empty_arr": []}
+  ],
+  "deeply_nested": {
+    "level1": {
+      "level2": {
+        "level3": {
+          "level4": {
+            "value": "end",
+            "flags": [true, false, null]
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -41,9 +41,9 @@ The install prefix can be changed at configure time using
 ## Usage
 
 ```sh
-json-view path/to/file.json
+json-view path/to/file1.json path/to/file2.json
 # or read from standard input
-cat file.json | json-view
+cat file1.json | json-view
 ```
 
 If no file argument is supplied `json-view` will read a single JSON document
@@ -71,4 +71,4 @@ info json-view
 
 ## License
 
-`json-view` is released under the terms of the [MIT License](LICENSE).
+`json-view` is released under the terms of the [GPLv3 or later License](LICENSE).
