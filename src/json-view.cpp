@@ -75,6 +75,9 @@ namespace ColorScheme
 
 using json = nlohmann::json;
 
+// When true, render tree and icons using plain ASCII instead of Unicode
+static bool asciiMode = false;
+
 // A Node represents a single entry in the tree.  Each node holds a
 // pointer into the underlying JSON document and a list of child nodes
 // for objects and arrays.  Nodes store their key (for object
@@ -101,7 +104,6 @@ static std::string getContentLabel(const Node *node, int maxWidth = 80);
 static void expandAll(Node *node);
 static void collapseAll(Node *node, bool keepRoot);
 static void expandToLevel(Node *node, int level, int currentLevel = 0);
-static bool supportsClipboard();
 static std::string getClipboardStatusMessage();
 static std::string base64Encode(const std::string &input);
 static void copyToClipboard(const std::string &text);
@@ -657,32 +659,6 @@ static std::string base64Encode(const std::string &input)
 }
 
 // Check if an executable exists in PATH
-static bool executableInPath(const char *exe)
-{
-    if (!exe || !*exe)
-        return false;
-    const char *path = std::getenv("PATH");
-    if (!path)
-        return false;
-    std::string pathStr(path);
-    size_t start = 0;
-    while (true)
-    {
-        size_t end = pathStr.find(':', start);
-        std::string dir = pathStr.substr(start, end == std::string::npos ? pathStr.size() - start : end - start);
-        if (!dir.empty())
-        {
-            std::string fullPath = dir + "/" + exe;
-            if (access(fullPath.c_str(), X_OK) == 0)
-                return true;
-        }
-        if (end == std::string::npos)
-            break;
-        start = end + 1;
-    }
-    return false;
-}
-
 // Check if OSC 52 clipboard sequences are likely to be supported
 static bool osc52Likely()
 {
@@ -713,84 +689,50 @@ static bool osc52Likely()
 }
 
 // Check if the current terminal supports clipboard operations via OSC 52
-static bool supportsClipboard()
-{
-    // 1) OSC 52 support (works in tmux with proper config!)
-    if (osc52Likely())
-        return true;
-
-    // 2) Native clipboard utilities as fallbacks
-    if (executableInPath("wl-copy"))
-        return true; // Wayland
-    if (executableInPath("xclip"))
-        return true; // X11
-    if (executableInPath("xsel"))
-        return true; // X11
-
-    return false;
-}
-
 // Get a descriptive message about clipboard support status
 static std::string getClipboardStatusMessage()
 {
-    if (supportsClipboard())
+    if (osc52Likely())
     {
         return "JSON copied to clipboard!";
     }
-    else
+    if (std::getenv("TMUX") && !osc52Likely())
     {
-        // Check what's missing
-        if (std::getenv("TMUX") && !osc52Likely())
-        {
-            return "Clipboard not supported - tmux needs OSC 52 configuration";
-        }
-        else if (!executableInPath("wl-copy") && !executableInPath("xclip") && !executableInPath("xsel"))
-        {
-            return "Clipboard not supported - install wl-copy, xclip, or xsel";
-        }
-        else
-        {
-            return "Clipboard not supported by this terminal";
-        }
+        return "Clipboard not supported - tmux needs OSC 52 configuration";
     }
+    return "Clipboard not supported by this terminal";
 }
 
-// Copy text to clipboard using OSC 52 escape sequence or fallback methods
+// Copy text to clipboard using OSC 52 escape sequence
 static void copyToClipboard(const std::string &text)
 {
-    // Try OSC 52 first (works over SSH and in properly configured tmux)
-    if (osc52Likely())
+    if (!osc52Likely())
+        return;
+
+    // Limit payload size to prevent issues with muxers/terminals
+    constexpr size_t maxOsc52Payload = 100000;
+    std::string encoded = base64Encode(text);
+
+    if (encoded.size() <= maxOsc52Payload)
     {
-        // Limit payload size to prevent issues with muxers/terminals
-        constexpr size_t maxOsc52Payload = 100000;
-        std::string encoded = base64Encode(text);
-
-        if (encoded.size() <= maxOsc52Payload)
+        // Try to write to /dev/tty first, fall back to stdout
+        FILE *out = std::fopen("/dev/tty", "w");
+        if (!out && isatty(fileno(stdout)))
         {
-            // Try to write to /dev/tty first, fall back to stdout
-            FILE *out = std::fopen("/dev/tty", "w");
-            if (!out && isatty(fileno(stdout)))
-            {
-                out = stdout;
-            }
+            out = stdout;
+        }
 
-            if (out)
+        if (out)
+        {
+            // Use BEL terminator instead of ST for better compatibility
+            std::fprintf(out, "\033]52;c;%s\a", encoded.c_str());
+            std::fflush(out);
+            if (out != stdout)
             {
-                // Use BEL terminator instead of ST for better compatibility
-                std::fprintf(out, "\033]52;c;%s\a", encoded.c_str());
-                std::fflush(out);
-                if (out != stdout)
-                {
-                    std::fclose(out);
-                }
-                return; // OSC 52 attempt made
+                std::fclose(out);
             }
         }
     }
-
-    // Fallback methods for native clipboard access
-    // Note: These won't work in our ncurses app context, but included for completeness
-    // They would require running external commands which could interfere with the UI
 }
 
 // Reconstruct JSON from a node and its children
@@ -1011,7 +953,7 @@ static void showHelp()
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
 
-    bool clipboardSupported = supportsClipboard();
+    bool clipboardSupported = osc52Likely();
 
     std::string copyLine = "  y                Copy selected JSON to clipboard";
     if (!clipboardSupported)
@@ -1074,17 +1016,17 @@ static void showHelp()
     int startCol = (cols - boxWidth) / 2;
 
     // Draw top border
-    mvaddstr(startRow, startCol, "┌");
+    mvaddstr(startRow, startCol, asciiMode ? "+" : "┌");
     for (int i = 1; i <= boxWidth - 1; ++i)
     {
-        addstr("─");
+        addstr(asciiMode ? "-" : "─");
     }
-    addstr("┐");
+    addstr(asciiMode ? "+" : "┐");
 
     // Draw content with side borders
     for (int i = 0; i < total; ++i)
     {
-        mvaddstr(startRow + 1 + i, startCol, "│");
+        mvaddstr(startRow + 1 + i, startCol, asciiMode ? "|" : "│");
         mvaddstr(startRow + 1 + i, startCol + 1, "  "); // Left padding
 
         // Handle the copy line with special coloring if not supported
@@ -1119,16 +1061,16 @@ static void showHelp()
         {
             addstr(" ");
         }
-        addstr("│");
+        addstr(asciiMode ? "|" : "│");
     }
 
     // Draw bottom border
-    mvaddstr(startRow + boxHeight - 1, startCol, "└");
+    mvaddstr(startRow + boxHeight - 1, startCol, asciiMode ? "+" : "└");
     for (int i = 1; i < boxWidth; ++i)
     {
-        addstr("─");
+        addstr(asciiMode ? "-" : "─");
     }
-    addstr("┘");
+    addstr(asciiMode ? "+" : "┘");
 
     refresh();
     int ch = getch();
@@ -1169,18 +1111,18 @@ static void showUsage(const char *progName)
 {
     std::cout << "json-view - Interactive JSON viewer with tree navigation\n\n";
     std::cout << "USAGE:\n";
-    std::cout << "  " << progName << " [--parse-only] [--no-mouse] [file1.json] [file2.json] ...\n";
-    std::cout << "  cat data.json | " << progName << " [--parse-only] [--no-mouse]\n\n";
+    std::cout << "  " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii] [file1.json] [file2.json] ...\n";
+    std::cout << "  cat data.json | " << progName << " [--parse-only|--validate] [--no-mouse] [--ascii]\n\n";
     std::cout << "DESCRIPTION:\n";
     std::cout << "  A simple console JSON viewer using ncurses for interactive tree navigation.\n";
     std::cout << "  Pass JSON file names as arguments to open them, or pipe JSON into the program\n";
     std::cout << "  with no arguments. Each document is presented as a collapsible tree.\n\n";
     std::cout << "NAVIGATION:\n";
-    std::cout << "  ↑/↓       Move selection up or down\n";
+    std::cout << (asciiMode ? "  Up/Down  " : "  ↑/↓       ") << "Move selection up or down\n";
     std::cout << "  PgUp/PgDn Move one page up or down\n";
     std::cout << "  Home/End  Jump to first or last item\n";
-    std::cout << "  ←         Collapse item or go to parent\n";
-    std::cout << "  →         Expand the current item\n";
+    std::cout << (asciiMode ? "  <-       " : "  ←         ") << "Collapse item or go to parent\n";
+    std::cout << (asciiMode ? "  ->       " : "  →         ") << "Expand the current item\n";
     std::cout << "  +         Expand all items\n";
     std::cout << "  -         Collapse all items\n";
     std::cout << "  0-9       Expand to nesting level (0=collapse all)\n";
@@ -1196,7 +1138,9 @@ static void showUsage(const char *progName)
     std::cout << "  -h, --help        Show this help message\n";
     std::cout << "  -V, --version     Show version information\n";
     std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n";
-    std::cout << "      --no-mouse    Disable mouse support\n\n";
+    std::cout << "      --validate    Validate JSON input and exit with status\n";
+    std::cout << "      --no-mouse    Disable mouse support\n";
+    std::cout << "      --ascii       Use ASCII tree/indicator characters (or set JSON_VIEW_ASCII=1)\n\n";
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << progName << " config.json data.json\n";
     std::cout << "  " << progName << " --parse-only config.json\n";
@@ -1221,13 +1165,13 @@ static void drawLine(int row, int idx, const Node *node, size_t selected,
     std::string contentLabel = getContentLabelWithSearch(node, search, availableWidth);
     int contentWidthForHighlight = getDisplayWidth(contentLabel);
 
-    // Add expand/collapse indicator with subtle Unicode triangles
+    // Add expand/collapse indicator with subtle Unicode triangles (ASCII when enabled)
     std::string indicator;
 
     if (!node->children.empty())
     {
         // For expandable nodes (objects and arrays), use regular expand/collapse indicator
-        indicator = node->expanded ? "▼ " : "▶ ";
+        indicator = node->expanded ? (asciiMode ? "v " : "▼ ") : (asciiMode ? "> " : "▶ ");
     }
     else if (!typeIcon.empty())
     {
@@ -1600,7 +1544,13 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
 
     bool parseOnly = false;
+    bool validateOnly = false;
     bool enableMouse = true;
+    const char *envAscii = std::getenv("JSON_VIEW_ASCII");
+    if (envAscii && *envAscii)
+    {
+        asciiMode = true;
+    }
     std::vector<const char *> files;
     for (int i = 1; i < argc; ++i)
     {
@@ -1622,9 +1572,19 @@ int main(int argc, char **argv)
             parseOnly = true;
             continue;
         }
+        if (strcmp(arg, "--validate") == 0)
+        {
+            validateOnly = true;
+            continue;
+        }
         if (strcmp(arg, "--no-mouse") == 0)
         {
             enableMouse = false;
+            continue;
+        }
+        if (strcmp(arg, "--ascii") == 0)
+        {
+            asciiMode = true;
             continue;
         }
         files.push_back(arg);
@@ -1634,6 +1594,7 @@ int main(int argc, char **argv)
     std::vector<std::unique_ptr<Node>> roots;
     std::vector<json> jsonDocs;
     bool anyParsed = false;
+    bool allParsed = true;
     for (const char *filename : files)
     {
         std::ifstream f(filename);
@@ -1659,7 +1620,7 @@ int main(int argc, char **argv)
                 printFormattedJson(doc);
                 std::cout << "\n";
             }
-            else
+            else if (!validateOnly)
             {
                 jsonDocs.push_back(std::move(doc));
                 const json *ptr = &jsonDocs.back();
@@ -1670,6 +1631,7 @@ int main(int argc, char **argv)
         catch (const std::exception &ex)
         {
             std::cerr << "Error parsing JSON in " << filename << ": " << ex.what() << std::endl;
+            allParsed = false;
         }
     }
 
@@ -1693,7 +1655,7 @@ int main(int argc, char **argv)
                     printFormattedJson(doc);
                     std::cout << "\n";
                 }
-                else
+                else if (!validateOnly)
                 {
                     jsonDocs.push_back(std::move(doc));
                     const json *ptr = &jsonDocs.back();
@@ -1704,8 +1666,16 @@ int main(int argc, char **argv)
             catch (const std::exception &ex)
             {
                 std::cerr << "Error parsing JSON from stdin: " << ex.what() << std::endl;
+                allParsed = false;
             }
         }
+    }
+
+    if (validateOnly)
+    {
+        if (!anyParsed || !allParsed)
+            return 1;
+        return 0;
     }
 
     if (parseOnly)
@@ -2386,10 +2356,7 @@ int main(int argc, char **argv)
                 int rows, cols;
                 getmaxyx(stdscr, rows, cols);
 
-                if (supportsClipboard())
-                {
-                    copyToClipboard(jsonStr);
-                }
+                copyToClipboard(jsonStr);
 
                 // Show appropriate status message
                 std::string message = getClipboardStatusMessage();
