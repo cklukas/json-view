@@ -34,6 +34,7 @@ class JsonTNode : public TNode
 {
 public:
     const Node *jsonNode;
+    JsonTNode *parent = nullptr;
     JsonTNode(const Node *n, TStringView text, JsonTNode *children = nullptr,
               JsonTNode *next = nullptr, Boolean exp = True)
         : TNode(text, children, next, exp), jsonNode(n) {}
@@ -42,7 +43,10 @@ public:
 class JsonOutline : public TOutline
 {
 public:
-    using TOutline::TOutline;
+    JsonOutline(TRect r, TScrollBar *h, TScrollBar *v, JsonTNode *aRoot)
+        : TOutline(r, h, v, aRoot), root(aRoot) {}
+
+    JsonTNode *root;
 
     JsonTNode *focusedNode()
     {
@@ -98,10 +102,59 @@ public:
                 }
             }
         }
-        else
+        else if (event.what == evKeyDown)
         {
-            TOutline::handleEvent(event);
+            JsonTNode *node = focusedNode();
+            switch (event.keyDown.keyCode)
+            {
+            case kbLeft:
+                if (node)
+                {
+                    if (node->expanded && node->childList)
+                    {
+                        node->expanded = False;
+                        update();
+                    }
+                    else if (node->parent)
+                        focusNode(node->parent);
+                }
+                clearEvent(event);
+                break;
+            case kbRight:
+                if (node)
+                {
+                    if (!node->expanded && node->childList)
+                    {
+                        node->expanded = True;
+                        update();
+                    }
+                    else if (node->childList)
+                        focusNode(static_cast<JsonTNode *>(node->childList));
+                }
+                clearEvent(event);
+                break;
+            case kbHome:
+                focusNode(static_cast<JsonTNode *>(getNode(0)));
+                clearEvent(event);
+                break;
+            case kbEnd:
+            {
+                JsonTNode *last = nullptr;
+                forEach([](TOutlineViewer *, TNode *n, int, int, long, ushort, void *arg) -> Boolean {
+                    *static_cast<JsonTNode **>(arg) = static_cast<JsonTNode *>(n);
+                    return False;
+                }, &last);
+                if (last)
+                    focusNode(last);
+                clearEvent(event);
+                break;
+            }
+            default:
+                TOutline::handleEvent(event);
+            }
         }
+        else
+            TOutline::handleEvent(event);
     }
 };
 
@@ -290,9 +343,11 @@ void JsonViewApp::rebuildOutline()
         {
             JsonTNode *firstChild = nullptr;
             JsonTNode *prev = nullptr;
+            std::vector<JsonTNode *> createdChildren;
             for (const auto &c : n->children)
             {
                 JsonTNode *child = (*this)(c.get());
+                createdChildren.push_back(child);
                 if (!firstChild)
                     firstChild = child;
                 else
@@ -301,6 +356,8 @@ void JsonViewApp::rebuildOutline()
             }
             std::string label = getContentLabel(n);
             auto node = new JsonTNode(n, label, firstChild, nullptr, n->expanded ? True : False);
+            for (auto *child : createdChildren)
+                child->parent = node;
             map[n] = node;
             return node;
         }
@@ -310,7 +367,11 @@ void JsonViewApp::rebuildOutline()
 
     TRect r = deskTop->getExtent();
     r.grow(-2, -2);
-    auto *win = new TWindow(r, "json", wnNoNumber);
+    std::string title = root->key;
+    size_t pos = title.find_last_of("/\\");
+    if (pos != std::string::npos)
+        title = title.substr(pos + 1);
+    auto *win = new TWindow(r, title.c_str(), wnNoNumber);
     win->flags |= wfGrow;
     deskTop->insert(win);
 
@@ -398,12 +459,16 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
     r.b.y = r.a.y + 1;
     return new TMenuBar(r,
                         *new TSubMenu("~F~ile", hcNoContext) +
-                            *new TMenuItem("~O~pen", cmOpen, kbCtrlO, hcNoContext) +
-                            *new TMenuItem("~C~lose", cmClose, kbCtrlW, hcNoContext) +
+                            *new TMenuItem("~O~pen", cmOpen, kbF2, hcNoContext) +
+                            *new TMenuItem("~C~lose", cmClose, kbF4, hcNoContext) +
                             newLine() +
                             *new TMenuItem("E~x~it", cmQuit, kbAltX, hcNoContext) +
                         *new TSubMenu("~E~dit", hcNoContext) +
                             *new TMenuItem("~C~opy", cmCopy, kbCtrlC, hcNoContext) +
+                        *new TSubMenu("~S~earch", hcNoContext) +
+                            *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext) +
+                            *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext) +
+                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext) +
                         *new TSubMenu("~V~iew", hcNoContext) +
                             *new TMenuItem("Level ~0~", cmLevel0, kbAlt0, hcNoContext) +
                             *new TMenuItem("Level ~1~", cmLevel1, kbAlt1, hcNoContext) +
@@ -415,12 +480,8 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
                             *new TMenuItem("Level ~7~", cmLevel7, kbAlt7, hcNoContext) +
                             *new TMenuItem("Level ~8~", cmLevel8, kbAlt8, hcNoContext) +
                             *new TMenuItem("Level ~9~", cmLevel9, kbAlt9, hcNoContext) +
-                        *new TSubMenu("~S~earch", hcNoContext) +
-                            *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext) +
-                            *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext) +
-                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext) +
                         *new TSubMenu("~H~elp", hcNoContext) +
-                            *new TMenuItem("~A~bout", cmAbout, kbNoKey, hcNoContext));
+                            *new TMenuItem("~A~bout", cmAbout, kbF1, hcNoContext));
 }
 
 TStatusLine *JsonViewApp::initStatusLine(TRect r)
