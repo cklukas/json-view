@@ -24,7 +24,7 @@
 #include <unordered_map>
 #include <string>
 
-static constexpr const char *kDeveloperName = "json-view developers";
+static constexpr const char *kDeveloperName = "Dr. C. Klukas";
 
 class JsonTNode : public TNode
 {
@@ -234,25 +234,26 @@ void JsonViewApp::rebuildOutline()
         }
     } builder{nodeMap};
 
-    JsonTNode *tvRoot = nullptr;
-    if (root && !root->children.empty())
-        tvRoot = builder(root->children[0].get());
-    else
-        tvRoot = builder(root.get());
+    JsonTNode *tvRoot = builder(root.get());
 
     TRect r = deskTop->getExtent();
     r.grow(-2, -2);
     auto *win = new TWindow(r, "json", wnNoNumber);
     win->flags |= wfGrow;
+    deskTop->insert(win);
+
     TRect c = win->getExtent();
     auto *sbH = new TScrollBar(TRect(1, c.b.y - 1, c.b.x - 1, c.b.y));
+    sbH->growMode = gfGrowHiX;
     auto *sbV = new TScrollBar(TRect(c.b.x - 1, 1, c.b.x, c.b.y - 1));
+    sbV->growMode = gfGrowHiY;
     auto *view = new JsonOutline(TRect(1, 1, c.b.x - 1, c.b.y - 1), sbH, sbV, tvRoot);
-    win->insert(view);
+    view->growMode = gfGrowHiX | gfGrowHiY;
     win->insert(sbH);
     win->insert(sbV);
+    win->insert(view);
     outline = view;
-    deskTop->insert(win);
+    outline->update();
 }
 
 void JsonViewApp::doSearch(bool newTerm)
