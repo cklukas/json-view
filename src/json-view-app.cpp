@@ -62,7 +62,8 @@ public:
             int found = -1;
         } finder{target};
 
-        forEach([](TOutlineViewer *, TNode *node, int, int pos, long, ushort, void *arg) -> Boolean {
+        forEach([](TOutlineViewer *, TNode *node, int, int pos, long, ushort, void *arg) -> Boolean
+                {
             auto &f = *static_cast<Finder *>(arg);
             if (node == f.target)
             {
@@ -70,8 +71,7 @@ public:
                 return True;
             }
             ++f.index;
-            return False;
-        }, &finder);
+            return False; }, &finder);
 
         if (finder.found >= 0)
         {
@@ -146,10 +146,10 @@ public:
             case kbEnd:
             {
                 JsonTNode *last = nullptr;
-                forEach([](TOutlineViewer *, TNode *n, int, int, long, ushort, void *arg) -> Boolean {
+                forEach([](TOutlineViewer *, TNode *n, int, int, long, ushort, void *arg) -> Boolean
+                        {
                     *static_cast<JsonTNode **>(arg) = static_cast<JsonTNode *>(n);
-                    return False;
-                }, &last);
+                    return False; }, &last);
                 if (last)
                     focusNode(last);
                 clearEvent(event);
@@ -569,30 +569,30 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
     r.b.y = r.a.y + 1;
     return new TMenuBar(r,
                         *new TSubMenu("~F~ile", hcNoContext) +
-                            *new TMenuItem("~O~pen	F2", cmOpen, kbF2, hcNoContext) +
-                            *new TMenuItem("~C~lose	F4", cmClose, kbF4, hcNoContext) +
+                            *new TMenuItem("~O~pen", cmOpen, kbF2, hcNoContext, "F2") +
+                            *new TMenuItem("~C~lose", cmClose, kbF4, hcNoContext, "F4") +
                             newLine() +
-                            *new TMenuItem("E~x~it	Alt+X", cmQuit, kbAltX, hcNoContext) +
-                        *new TSubMenu("~E~dit", hcNoContext) +
-                            *new TMenuItem("~C~opy	Ctrl+C", cmCopy, kbCtrlC, hcNoContext) +
-                        *new TSubMenu("~S~earch", hcNoContext) +
-                            *new TMenuItem("~F~ind	Ctrl+F", cmFind, kbCtrlF, hcNoContext) +
-                            *new TMenuItem("Find ~N~ext	F3", cmFindNext, kbF3, hcNoContext) +
-                            *new TMenuItem("Find ~P~rev	Shift+F3", cmFindPrev, kbShiftF3, hcNoContext) +
-                            *new TMenuItem("~E~nd Search	Esc", cmEndSearch, kbNoKey, hcNoContext) +
-                        *new TSubMenu("~V~iew", hcNoContext) +
-                            *new TMenuItem("Level ~0~	Alt+0", cmLevel0, kbAlt0, hcNoContext) +
-                            *new TMenuItem("Level ~1~	Alt+1", cmLevel1, kbAlt1, hcNoContext) +
-                            *new TMenuItem("Level ~2~	Alt+2", cmLevel2, kbAlt2, hcNoContext) +
-                            *new TMenuItem("Level ~3~	Alt+3", cmLevel3, kbAlt3, hcNoContext) +
-                            *new TMenuItem("Level ~4~	Alt+4", cmLevel4, kbAlt4, hcNoContext) +
-                            *new TMenuItem("Level ~5~	Alt+5", cmLevel5, kbAlt5, hcNoContext) +
-                            *new TMenuItem("Level ~6~	Alt+6", cmLevel6, kbAlt6, hcNoContext) +
-                            *new TMenuItem("Level ~7~	Alt+7", cmLevel7, kbAlt7, hcNoContext) +
-                            *new TMenuItem("Level ~8~	Alt+8", cmLevel8, kbAlt8, hcNoContext) +
-                            *new TMenuItem("Level ~9~	Alt+9", cmLevel9, kbAlt9, hcNoContext) +
-                        *new TSubMenu("~H~elp", hcNoContext) +
-                            *new TMenuItem("~A~bout	F1", cmAbout, kbF1, hcNoContext));
+                            *new TMenuItem("E~x~it", cmQuit, kbAltX, hcNoContext, "Alt-X") +
+                            *new TSubMenu("~E~dit", hcNoContext) +
+                            *new TMenuItem("~C~opy", cmCopy, kbCtrlC, hcNoContext, "Ctrl-C") +
+                            *new TSubMenu("~S~earch", hcNoContext) +
+                            *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext, "Ctrl-F") +
+                            *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext, "F3") +
+                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext, "Shift-F3") +
+                            *new TMenuItem("~E~nd Search", cmEndSearch, kbNoKey, hcNoContext, "Esc") +
+                            *new TSubMenu("~V~iew", hcNoContext) +
+                            *new TMenuItem("Level ~0~", cmLevel0, kbAlt0, hcNoContext, "Alt-0") +
+                            *new TMenuItem("Level ~1~", cmLevel1, kbAlt1, hcNoContext, "Alt-1") +
+                            *new TMenuItem("Level ~2~", cmLevel2, kbAlt2, hcNoContext, "Alt-2") +
+                            *new TMenuItem("Level ~3~", cmLevel3, kbAlt3, hcNoContext, "Alt-3") +
+                            *new TMenuItem("Level ~4~", cmLevel4, kbAlt4, hcNoContext, "Alt+4") +
+                            *new TMenuItem("Level ~5~", cmLevel5, kbAlt5, hcNoContext, "Alt+5") +
+                            *new TMenuItem("Level ~6~", cmLevel6, kbAlt6, hcNoContext, "Alt+6") +
+                            *new TMenuItem("Level ~7~", cmLevel7, kbAlt7, hcNoContext, "Alt+7") +
+                            *new TMenuItem("Level ~8~", cmLevel8, kbAlt8, hcNoContext, "Alt+8") +
+                            *new TMenuItem("Level ~9~", cmLevel9, kbAlt9, hcNoContext, "Alt+9") +
+                            *new TSubMenu("~H~elp", hcNoContext) +
+                            *new TMenuItem("~A~bout", cmAbout, kbF1, hcNoContext, "F1"));
 }
 
 TStatusLine *JsonViewApp::initStatusLine(TRect r)
@@ -607,4 +607,3 @@ int main(int argc, char **argv)
     app.run();
     return 0;
 }
-
