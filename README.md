@@ -9,7 +9,9 @@ useful for quickly inspecting large files directly from the command line.
 The repository also provides `json-view-app`, a
 [Turbo Vision](https://github.com/magiblot/tvision) based TUI that offers
 similar navigation and search capabilities through a classic menu driven
-interface.
+interface. The program accepts file names on the command line for
+immediate viewing and includes a Help→About dialog displaying the current
+version and developer information.
 
 ```
 ▼ /tmp/test.json (📦 dictionary, 7 keys, 951 Bytes)

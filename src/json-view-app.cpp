@@ -22,6 +22,9 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <string>
+
+static constexpr const char *kDeveloperName = "json-view developers";
 
 class JsonTNode : public TNode
 {
@@ -75,7 +78,7 @@ public:
 class JsonViewApp : public TApplication
 {
 public:
-    JsonViewApp();
+    JsonViewApp(int argc, char **argv);
 
     virtual void handleEvent(TEvent &event);
     virtual void idle();
@@ -83,6 +86,7 @@ public:
     static TStatusLine *initStatusLine(TRect r);
 
 private:
+    bool loadFile(const std::string &name);
     std::unique_ptr<Node> root;
     std::unordered_map<const Node *, JsonTNode *> nodeMap;
     JsonOutline *outline = nullptr;
@@ -98,11 +102,14 @@ private:
 static const ushort cmFind = 1000;
 static const ushort cmFindNext = 1001;
 static const ushort cmFindPrev = 1002;
+static const ushort cmAbout = 1003;
 
-JsonViewApp::JsonViewApp()
+JsonViewApp::JsonViewApp(int argc, char **argv)
     : TProgInit(&JsonViewApp::initStatusLine, &JsonViewApp::initMenuBar, &TApplication::initDeskTop),
       TApplication()
 {
+    for (int i = 1; i < argc; ++i)
+        loadFile(argv[i]);
 }
 
 void JsonViewApp::handleEvent(TEvent &event)
@@ -134,6 +141,13 @@ void JsonViewApp::handleEvent(TEvent &event)
                 outline->focusNode(nodeMap[search.matches[search.currentIndex]]);
             }
             break;
+        case cmAbout:
+        {
+            std::string msg = std::string("json-view-app ") + JSON_VIEW_VERSION +
+                              "\nDeveloper: " + kDeveloperName;
+            messageBox(msg.c_str(), mfInformation | mfOKButton);
+            break;
+        }
         default:
             return;
         }
@@ -152,22 +166,26 @@ void JsonViewApp::openFile()
     char name[maxLen];
     name[0] = '\0';
     if (executeDialog(new TFileDialog("*.json", "Open JSON", "~N~ame", fdOpenButton, 1), name) != cmCancel)
+        loadFile(name);
+}
+
+bool JsonViewApp::loadFile(const std::string &name)
+{
+    std::ifstream in(name);
+    if (!in)
     {
-        std::ifstream in(name);
-        if (!in)
-        {
-            messageBox("Could not open file", mfError | mfOKButton);
-            return;
-        }
-        std::ostringstream ss;
-        ss << in.rdbuf();
-        json j = parseJsonWithSpecialNumbers(ss.str());
-        fileSizes.clear();
-        fileSizes[name] = ss.str().size();
-        root = buildTree(&j, name, nullptr, true);
-        search = SearchState();
-        rebuildOutline();
+        messageBox("Could not open file", mfError | mfOKButton);
+        return false;
     }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    json j = parseJsonWithSpecialNumbers(ss.str());
+    fileSizes.clear();
+    fileSizes[name] = ss.str().size();
+    root = buildTree(&j, name, nullptr, true);
+    search = SearchState();
+    rebuildOutline();
+    return true;
 }
 
 void JsonViewApp::closeFile()
@@ -226,9 +244,10 @@ void JsonViewApp::rebuildOutline()
     r.grow(-2, -2);
     auto *win = new TWindow(r, "json", wnNoNumber);
     win->flags |= wfGrow;
-    auto *sbH = new TScrollBar(TRect(r.a.x, r.b.y - 1, r.b.x - r.a.x - 1, r.b.y));
-    auto *sbV = new TScrollBar(TRect(r.b.x - 1, r.a.y, r.b.x, r.b.y - 1));
-    auto *view = new JsonOutline(TRect(0, 0, r.b.x - r.a.x - 1, r.b.y - r.a.y - 1), sbH, sbV, tvRoot);
+    TRect c = win->getExtent();
+    auto *sbH = new TScrollBar(TRect(1, c.b.y - 1, c.b.x - 1, c.b.y));
+    auto *sbV = new TScrollBar(TRect(c.b.x - 1, 1, c.b.x, c.b.y - 1));
+    auto *view = new JsonOutline(TRect(1, 1, c.b.x - 1, c.b.y - 1), sbH, sbV, tvRoot);
     win->insert(view);
     win->insert(sbH);
     win->insert(sbV);
@@ -299,7 +318,9 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
                         *new TSubMenu("~S~earch", hcNoContext) +
                             *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext) +
                             *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext) +
-                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext));
+                            *new TMenuItem("Find ~P~rev", cmFindPrev, kbShiftF3, hcNoContext) +
+                        *new TSubMenu("~H~elp", hcNoContext) +
+                            *new TMenuItem("~A~bout", cmAbout, kbNoKey, hcNoContext));
 }
 
 TStatusLine *JsonViewApp::initStatusLine(TRect r)
@@ -312,9 +333,9 @@ TStatusLine *JsonViewApp::initStatusLine(TRect r)
                                *new TStatusItem("~Ctrl+Q~ Quit", kbCtrlQ, cmQuit));
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    JsonViewApp app;
+    JsonViewApp app(argc, argv);
     app.run();
     return 0;
 }

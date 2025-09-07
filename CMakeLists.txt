@@ -68,6 +68,7 @@ FetchContent_MakeAvailable(tvision)
 
 add_executable(json-view-app src/json-view-app.cpp)
 target_include_directories(json-view-app PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(json-view-app PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSION}")
 target_link_libraries(json-view-app PRIVATE json_view_core tvision::tvision)
 
 file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
