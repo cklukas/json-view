@@ -47,10 +47,13 @@ if(NOT CURSES_FOUND)
 endif()
 
 add_executable(json-view src/json-view.cpp)
+add_library(json_view_core STATIC src/json_view_core.cpp)
+target_include_directories(json_view_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
+
 target_include_directories(json-view PRIVATE ${CMAKE_SOURCE_DIR}/include ${CURSES_INCLUDE_DIRS})
 target_compile_definitions(json-view PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSION}")
 
-target_link_libraries(json-view PRIVATE ${CURSES_LIBRARIES})
+target_link_libraries(json-view PRIVATE json_view_core ${CURSES_LIBRARIES})
 
 file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
 foreach(json ${EXAMPLE_JSON_FILES})
@@ -63,7 +66,8 @@ foreach(json ${EXAMPLE_JSON_FILES})
   endif()
 endforeach()
 
-install(TARGETS json-view DESTINATION bin)
+install(TARGETS json-view RUNTIME DESTINATION bin)
+install(TARGETS json_view_core ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 configure_file(doc/json-view.1.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.1 @ONLY)
 configure_file(doc/json-view.texi.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.texi @ONLY)
 
