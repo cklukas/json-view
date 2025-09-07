@@ -88,7 +88,7 @@ cat data.json | json-view
 @table @code
 @item -h, --help
 Display a short usage summary and exit.
-@item --version
+@item -V, --version
 Show version information and exit.
 @end table
 

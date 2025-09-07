@@ -1178,7 +1178,7 @@ static void showUsage(const char *progName)
     std::cout << "  q         Quit the program\n\n";
     std::cout << "OPTIONS:\n";
     std::cout << "  -h, --help        Show this help message\n";
-    std::cout << "  --version         Show version information\n";
+    std::cout << "  -V, --version     Show version information\n";
     std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n\n";
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << progName << " config.json data.json\n";
@@ -1567,9 +1567,9 @@ int main(int argc, char **argv)
             showUsage(argv[0]);
             return 0;
         }
-        if (strcmp(arg, "--version") == 0)
+        if (strcmp(arg, "--version") == 0 || strcmp(arg, "-V") == 0)
         {
-            std::cout << "json-view version 1.0\n";
+            std::cout << "json-view " << JSON_VIEW_VERSION << "\n";
             std::cout << "Built on " << __DATE__ << " " << __TIME__ << "\n";
             std::cout << "Author: (c) 2025, Dr. C. Klukas\n";
             return 0;
