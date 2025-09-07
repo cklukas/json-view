@@ -13,6 +13,8 @@ useful for quickly inspecting large files directly from the command line.
 * Open multiple files or read JSON from standard input.
 * Mouse interactions: click to select, click left of a label or double-click to expand/collapse, click footer hints, click help dialog to close.
 * `--parse-only` mode for pretty-printing JSON without the interactive viewer.
+* `--validate` mode for non-interactive JSON validation.
+* Optional ASCII-only mode for environments with limited Unicode support.
 
 ## Requirements
 
@@ -74,19 +76,28 @@ Download them from the repository's Releases page.
 json-view path/to/file1.json path/to/file2.json
 # or pretty-print and exit
 json-view --parse-only path/to/file.json
+# validate only
+json-view --validate path/to/file.json
 # show version
 json-view -V
 # or read from standard input
 cat file1.json | json-view
 cat file1.json | json-view --parse-only
+cat file1.json | json-view --validate
 # disable mouse support
 json-view --no-mouse file1.json
+# force ASCII tree characters
+json-view --ascii file1.json
+# or via environment variable
+JSON_VIEW_ASCII=1 json-view file1.json
 ```
 
 If no file argument is supplied `json-view` will read a single JSON document
 from standard input.  With `--parse-only` the input is formatted and printed to
 standard output. Without it, the interface uses the arrow keys (and the mouse)
-to navigate; `--no-mouse` disables mouse handling entirely.
+to navigate; `--no-mouse` disables mouse handling entirely. Use `--ascii` or
+set `JSON_VIEW_ASCII=1` to force plain ASCII characters when Unicode support is
+limited.
 
 ### Key bindings
 
@@ -99,7 +110,7 @@ to navigate; `--no-mouse` disables mouse handling entirely.
 * `s` – search keys, `S` – search values
 * `n` / `N` – next / previous search match
 * `c` – clear search results
-* `y` – copy selected JSON to clipboard (OSC 52 when supported)
+* `y` – copy selected JSON to clipboard via OSC 52 (terminal support required)
 * `?` – show a help screen
 * `q` – quit the viewer
 * Mouse – click to select, click left of a label or double-click to expand/collapse, click footer hints, click anywhere on the help screen to close it

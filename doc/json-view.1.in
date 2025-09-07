@@ -1,0 +1,33 @@
+
+.TH "JSON-VIEW" "1" "May 2025" "json-view @PROJECT_VERSION@" "User Commands"
+.SH NAME
+json-view \- terminal JSON viewer
+.SH SYNOPSIS
+.B json-view
+.RI [ FILE\ .\|.\|. ]
+.SH DESCRIPTION
+.B json-view
+displays JSON data in a navigable tree using the
+.BR ncurses (3x)
+library.  If no
+.I FILE
+is provided the program reads a single document from standard input.
+.SH OPTIONS
+.TP
+.B -h , --help
+Show usage information.
+.TP
+.B -V , --version
+Display version information and exit.
+.TP
+.B -p , --parse-only
+Pretty-print input JSON and exit.
+.TP
+.B --validate
+Validate JSON input and exit with a status code.
+.TP
+.B --no-mouse
+Disable mouse support and rely on keyboard input only.
+.SH KEYS
+The interface responds to the following keys:
+.TP

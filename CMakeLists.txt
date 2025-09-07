@@ -25,19 +25,26 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(APPLE)
+set(CURSES_NEED_WIDE TRUE)
+find_package(Curses QUIET)
+
+if(NOT CURSES_FOUND AND APPLE)
   find_program(BREW brew)
   if(BREW)
     execute_process(
       COMMAND ${BREW} --prefix ncurses
       OUTPUT_VARIABLE NCURSES_PREFIX
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-    list(APPEND CMAKE_PREFIX_PATH "${NCURSES_PREFIX}")
+    if(NCURSES_PREFIX)
+      list(APPEND CMAKE_PREFIX_PATH "${NCURSES_PREFIX}")
+      find_package(Curses REQUIRED)
+    endif()
   endif()
 endif()
 
-set(CURSES_NEED_WIDE TRUE)
-find_package(Curses REQUIRED)
+if(NOT CURSES_FOUND)
+  message(FATAL_ERROR "Could not find ncurses; install ncurses or set CMAKE_PREFIX_PATH")
+endif()
 
 add_executable(json-view src/json-view.cpp)
 target_include_directories(json-view PRIVATE ${CMAKE_SOURCE_DIR}/include ${CURSES_INCLUDE_DIRS})
@@ -47,13 +54,21 @@ target_link_libraries(json-view PRIVATE ${CURSES_LIBRARIES})
 
 file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
 foreach(json ${EXAMPLE_JSON_FILES})
-  get_filename_component(name ${json} NAME)
-  add_test(NAME parse_${name} COMMAND $<TARGET_FILE:json-view> --parse-only ${json})
+  get_filename_component(name ${json} NAME_WE)
+  if(name STREQUAL "invalid")
+    add_test(NAME validate_${name} COMMAND $<TARGET_FILE:json-view> --validate ${json})
+    set_tests_properties(validate_${name} PROPERTIES WILL_FAIL TRUE)
+  else()
+    add_test(NAME validate_${name} COMMAND $<TARGET_FILE:json-view> --validate ${json})
+  endif()
 endforeach()
 
 install(TARGETS json-view DESTINATION bin)
-install(FILES doc/json-view.1 DESTINATION share/man/man1)
-install(FILES doc/json-view.texi DESTINATION share/info)
+configure_file(doc/json-view.1.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.1 @ONLY)
+configure_file(doc/json-view.texi.in ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.texi @ONLY)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.1 DESTINATION share/man/man1)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/doc/json-view.texi DESTINATION share/info)
 
 set(CPACK_PACKAGE_NAME "json-view")
 set(CPACK_PACKAGE_VENDOR "json-view")

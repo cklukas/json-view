@@ -2,6 +2,7 @@
 
 @setfilename json-view.info
 @settitle json-view Manual
+@set VERSION @PROJECT_VERSION@
 
 @copying
 This manual is for @code{json-view}, a terminal JSON viewer.
@@ -16,6 +17,7 @@ Copyright (C) 2025 C. Klukas
 @titlepage
 @title json-view
 @subtitle Terminal JSON viewer
+@subtitle Version @value{VERSION}
 @author C. Klukas
 @page
 @insertcopying
@@ -81,6 +83,19 @@ input, making it easy to use in pipelines:
 cat data.json | json-view
 @end example
 
+To pretty-print JSON without launching the interactive viewer, use
+@code{--parse-only}:
+
+@example
+json-view --parse-only file.json
+@end example
+
+To validate JSON and return a status code, use @code{--validate}:
+
+@example
+json-view --validate file.json
+@end example
+
 @node Command-line Options
 @chapter Command-line Options
 @cindex options
@@ -90,11 +105,12 @@ cat data.json | json-view
 Display a short usage summary and exit.
 @item -V, --version
 Show version information and exit.
+@item -p, --parse-only
+Pretty-print input JSON and exit.
+@item --validate
+Validate JSON input and exit with a status code.
 @item --no-mouse
 Disable mouse support and use only the keyboard.
-@item --ascii
-Render the tree using plain ASCII characters instead of Unicode glyphs.
-This can also be enabled by setting @code{JSON_VIEW_ASCII=1}.
 @end table
 
 @node Key Bindings
