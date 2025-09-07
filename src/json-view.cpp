@@ -14,6 +14,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -74,69 +75,6 @@ namespace ColorScheme
 
 using json = nlohmann::json;
 
-// Custom SAX parser that handles unquoted NaN and Infinity values
-class robust_sax_parser : public nlohmann::json_sax<json>
-{
-    using number_integer_t = json::number_integer_t;
-    using number_unsigned_t = json::number_unsigned_t;
-    using number_float_t = json::number_float_t;
-    using string_t = json::string_t;
-    using binary_t = json::binary_t;
-
-public:
-    explicit robust_sax_parser(json *j)
-        : dom_parser(*j, /*allow_exceptions=*/true)
-    {
-    }
-
-    bool null() override { return dom_parser.null(); }
-
-    bool boolean(bool val) override { return dom_parser.boolean(val); }
-
-    bool number_integer(number_integer_t val) override { return dom_parser.number_integer(val); }
-
-    bool number_unsigned(number_unsigned_t val) override { return dom_parser.number_unsigned(val); }
-
-    bool number_float(number_float_t, const string_t &s) override
-    {
-        if (s == "NaN")
-        {
-            return dom_parser.number_float(std::numeric_limits<double>::quiet_NaN(), s);
-        }
-        if (s == "Infinity")
-        {
-            return dom_parser.number_float(std::numeric_limits<double>::infinity(), s);
-        }
-        if (s == "-Infinity")
-        {
-            return dom_parser.number_float(-std::numeric_limits<double>::infinity(), s);
-        }
-        return dom_parser.number_float(std::stod(s), s);
-    }
-
-    bool string(string_t &val) override { return dom_parser.string(val); }
-
-    bool binary(binary_t &val) override { return dom_parser.binary(val); }
-
-    bool start_object(std::size_t len) override { return dom_parser.start_object(len); }
-
-    bool key(string_t &val) override { return dom_parser.key(val); }
-
-    bool end_object() override { return dom_parser.end_object(); }
-
-    bool start_array(std::size_t len) override { return dom_parser.start_array(len); }
-
-    bool end_array() override { return dom_parser.end_array(); }
-
-    bool parse_error(std::size_t position, const std::string &last_token, const nlohmann::detail::exception &ex) override
-    {
-        return dom_parser.parse_error(position, last_token, ex);
-    }
-
-private:
-    nlohmann::detail::json_sax_dom_parser<json, decltype(nlohmann::detail::input_adapter(std::declval<std::string&>()))> dom_parser;
-};
-
 // A Node represents a single entry in the tree.  Each node holds a
 // pointer into the underlying JSON document and a list of child nodes
 // for objects and arrays.  Nodes store their key (for object
@@ -169,6 +107,8 @@ static std::string base64Encode(const std::string &input);
 static void copyToClipboard(const std::string &text);
 static json reconstructJson(const Node *node);
 static std::string formatFileSize(size_t size);
+static void printFormattedJson(const json &j, int indent = 0);
+static json parseJsonWithSpecialNumbers(const std::string &contents);
 
 // Calculate the display width of a UTF-8 string (handles Unicode properly)
 static int getDisplayWidth(const std::string &str)
@@ -893,6 +833,165 @@ static std::string formatFileSize(size_t size)
     return oss.str();
 }
 
+// Pretty-print JSON preserving NaN/Infinity literals
+static void printFormattedJson(const json &j, int indent)
+{
+    std::string pad(indent, ' ');
+    switch (j.type())
+    {
+    case json::value_t::object:
+        if (j.empty())
+        {
+            std::cout << "{}";
+            return;
+        }
+        std::cout << "{\n";
+        for (auto it = j.cbegin(); it != j.cend(); ++it)
+        {
+            std::cout << std::string(indent + 2, ' ')
+                      << json(it.key()).dump() << ": ";
+            printFormattedJson(it.value(), indent + 2);
+            if (std::next(it) != j.cend())
+                std::cout << ",";
+            std::cout << "\n";
+        }
+        std::cout << pad << "}";
+        break;
+    case json::value_t::array:
+        if (j.empty())
+        {
+            std::cout << "[]";
+            return;
+        }
+        std::cout << "[\n";
+        for (size_t i = 0; i < j.size(); ++i)
+        {
+            std::cout << std::string(indent + 2, ' ');
+            printFormattedJson(j[i], indent + 2);
+            if (i + 1 < j.size())
+                std::cout << ",";
+            std::cout << "\n";
+        }
+        std::cout << pad << "]";
+        break;
+    case json::value_t::string:
+        std::cout << j.dump();
+        break;
+    case json::value_t::boolean:
+    case json::value_t::number_integer:
+    case json::value_t::number_unsigned:
+        std::cout << j.dump();
+        break;
+    case json::value_t::number_float:
+    {
+        double d = j.get<double>();
+        if (std::isnan(d))
+            std::cout << "NaN";
+        else if (std::isinf(d))
+            std::cout << (d > 0 ? "Infinity" : "-Infinity");
+        else
+            std::cout << j.dump();
+        break;
+    }
+    case json::value_t::null:
+        std::cout << "null";
+        break;
+    default:
+        std::cout << j.dump();
+        break;
+    }
+}
+
+// Replace placeholder strings with special floating-point values
+static void replaceSpecialStrings(json &j)
+{
+    if (j.is_string())
+    {
+        auto &s = j.get_ref<json::string_t &>();
+        if (s == "__JSON_VIEW_NaN__")
+            j = std::numeric_limits<double>::quiet_NaN();
+        else if (s == "__JSON_VIEW_INF__")
+            j = std::numeric_limits<double>::infinity();
+        else if (s == "__JSON_VIEW_NEG_INF__")
+            j = -std::numeric_limits<double>::infinity();
+    }
+    else if (j.is_object())
+    {
+        for (auto &el : j.items())
+            replaceSpecialStrings(el.value());
+    }
+    else if (j.is_array())
+    {
+        for (auto &el : j)
+            replaceSpecialStrings(el);
+    }
+}
+
+// Parse JSON while preserving NaN/Infinity literals by using placeholders
+static json parseJsonWithSpecialNumbers(const std::string &contents)
+{
+    std::string processed;
+    processed.reserve(contents.size());
+    bool inString = false;
+    for (size_t i = 0; i < contents.size();)
+    {
+        char c = contents[i];
+        if (inString)
+        {
+            processed.push_back(c);
+            if (c == '\\')
+            {
+                ++i;
+                if (i < contents.size())
+                    processed.push_back(contents[i]);
+                ++i;
+            }
+            else if (c == '"')
+            {
+                inString = false;
+                ++i;
+            }
+            else
+            {
+                ++i;
+            }
+        }
+        else
+        {
+            if (c == '"')
+            {
+                inString = true;
+                processed.push_back(c);
+                ++i;
+            }
+            else if (contents.compare(i, 3, "NaN") == 0)
+            {
+                processed += "\"__JSON_VIEW_NaN__\"";
+                i += 3;
+            }
+            else if (contents.compare(i, 8, "Infinity") == 0)
+            {
+                processed += "\"__JSON_VIEW_INF__\"";
+                i += 8;
+            }
+            else if (contents.compare(i, 9, "-Infinity") == 0)
+            {
+                processed += "\"__JSON_VIEW_NEG_INF__\"";
+                i += 9;
+            }
+            else
+            {
+                processed.push_back(c);
+                ++i;
+            }
+        }
+    }
+
+    json j = json::parse(processed);
+    replaceSpecialStrings(j);
+    return j;
+}
+
 // Display a help screen listing all key bindings.  The overlay
 // temporarily clears the screen and waits for any key press before
 // returning.
@@ -1055,8 +1154,8 @@ static void showUsage(const char *progName)
 {
     std::cout << "json-view - Interactive JSON viewer with tree navigation\n\n";
     std::cout << "USAGE:\n";
-    std::cout << "  " << progName << " [file1.json] [file2.json] ...\n";
-    std::cout << "  cat data.json | " << progName << "\n\n";
+    std::cout << "  " << progName << " [--parse-only] [file1.json] [file2.json] ...\n";
+    std::cout << "  cat data.json | " << progName << " [--parse-only]\n\n";
     std::cout << "DESCRIPTION:\n";
     std::cout << "  A simple console JSON viewer using ncurses for interactive tree navigation.\n";
     std::cout << "  Pass JSON file names as arguments to open them, or pipe JSON into the program\n";
@@ -1078,11 +1177,13 @@ static void showUsage(const char *progName)
     std::cout << "  ?         Show help screen\n";
     std::cout << "  q         Quit the program\n\n";
     std::cout << "OPTIONS:\n";
-    std::cout << "  -h, --help    Show this help message\n";
-    std::cout << "  --version     Show version information\n\n";
+    std::cout << "  -h, --help        Show this help message\n";
+    std::cout << "  --version         Show version information\n";
+    std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n\n";
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << progName << " config.json data.json\n";
-    std::cout << "  echo '{\"key\":\"value\"}' | " << progName << "\n";
+    std::cout << "  " << progName << " --parse-only config.json\n";
+    std::cout << "  echo '{\"key\":\"value\"}' | " << progName << " --parse-only\n";
     std::cout << "  curl -s https://api.example.com/data | " << progName << "\n\n";
     std::cout << "AUTHOR:\n";
     std::cout << "  Dr. C. Klukas\n\n";
@@ -1456,7 +1557,8 @@ int main(int argc, char **argv)
     // Enable UTF-8 locale for proper Unicode support
     setlocale(LC_ALL, "");
 
-    // Check for help or version flags
+    bool parseOnly = false;
+    std::vector<const char *> files;
     for (int i = 1; i < argc; ++i)
     {
         const char *arg = argv[i];
@@ -1472,16 +1574,20 @@ int main(int argc, char **argv)
             std::cout << "Author: (c) 2025, Dr. C. Klukas\n";
             return 0;
         }
+        if (strcmp(arg, "--parse-only") == 0 || strcmp(arg, "-p") == 0)
+        {
+            parseOnly = true;
+            continue;
+        }
+        files.push_back(arg);
     }
 
     // Parse JSON files or standard input
     std::vector<std::unique_ptr<Node>> roots;
     std::vector<json> jsonDocs;
-    bool hadFileArgs = false;
-    for (int i = 1; i < argc; ++i)
+    bool anyParsed = false;
+    for (const char *filename : files)
     {
-        const char *filename = argv[i];
-        hadFileArgs = true;
         std::ifstream f(filename);
         if (!f)
         {
@@ -1498,21 +1604,19 @@ int main(int argc, char **argv)
 
         try
         {
-            json doc;
-            robust_sax_parser sax_parser(&doc);
-            bool success = json::sax_parse(contents, &sax_parser);
-            if (success)
+            json doc = parseJsonWithSpecialNumbers(contents);
+            anyParsed = true;
+            if (parseOnly)
             {
-                jsonDocs.push_back(std::move(doc));
-                const json *ptr = &jsonDocs.back();
-                // Use the filename as the dummy root key
-                auto root = buildTree(ptr, filename, nullptr, true);
-                // Mark last root later
-                roots.push_back(std::move(root));
+                printFormattedJson(doc);
+                std::cout << "\n";
             }
             else
             {
-                std::cerr << "Failed to parse JSON with custom SAX parser in " << filename << std::endl;
+                jsonDocs.push_back(std::move(doc));
+                const json *ptr = &jsonDocs.back();
+                auto root = buildTree(ptr, filename, nullptr, true);
+                roots.push_back(std::move(root));
             }
         }
         catch (const std::exception &ex)
@@ -1520,7 +1624,8 @@ int main(int argc, char **argv)
             std::cerr << "Error parsing JSON in " << filename << ": " << ex.what() << std::endl;
         }
     }
-    if (!hadFileArgs)
+
+    if (files.empty())
     {
         // Read from stdin and parse as a single JSON document
         std::ostringstream ss;
@@ -1528,25 +1633,24 @@ int main(int argc, char **argv)
         std::string contents = ss.str();
         if (!contents.empty())
         {
-            // Store the stdin content size
             size_t contentSize = contents.size();
             fileSizes["(stdin)"] = contentSize;
 
             try
             {
-                json doc;
-                robust_sax_parser sax_parser(&doc);
-                bool success = json::sax_parse(contents, &sax_parser);
-                if (success)
+                json doc = parseJsonWithSpecialNumbers(contents);
+                anyParsed = true;
+                if (parseOnly)
+                {
+                    printFormattedJson(doc);
+                    std::cout << "\n";
+                }
+                else
                 {
                     jsonDocs.push_back(std::move(doc));
                     const json *ptr = &jsonDocs.back();
                     auto root = buildTree(ptr, "(stdin)", nullptr, true);
                     roots.push_back(std::move(root));
-                }
-                else
-                {
-                    std::cerr << "Failed to parse JSON with custom SAX parser from stdin" << std::endl;
                 }
             }
             catch (const std::exception &ex)
@@ -1555,6 +1659,17 @@ int main(int argc, char **argv)
             }
         }
     }
+
+    if (parseOnly)
+    {
+        if (!anyParsed)
+        {
+            std::cerr << "No valid JSON documents provided." << std::endl;
+            return 1;
+        }
+        return 0;
+    }
+
     // Mark last child among roots so that prefixes are drawn properly
     for (size_t i = 0; i < roots.size(); ++i)
     {

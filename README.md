@@ -12,6 +12,7 @@ useful for quickly inspecting large files directly from the command line.
 * Search keys or values and jump between matches.
 * Open multiple files or read JSON from standard input.
 * Optional mouse support for selection and expansion.
+* `--parse-only` mode for pretty-printing JSON without the interactive viewer.
 
 ## Requirements
 
@@ -42,13 +43,17 @@ The install prefix can be changed at configure time using
 
 ```sh
 json-view path/to/file1.json path/to/file2.json
+# or pretty-print and exit
+json-view --parse-only path/to/file.json
 # or read from standard input
 cat file1.json | json-view
+cat file1.json | json-view --parse-only
 ```
 
 If no file argument is supplied `json-view` will read a single JSON document
-from standard input.  The interface uses the arrow keys to navigate and `q` to
-quit.
+from standard input.  With `--parse-only` the input is formatted and printed to
+standard output. Without it, the interface uses the arrow keys to navigate and
+`q` to quit.
 
 ### Key bindings
 
