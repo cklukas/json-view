@@ -14,6 +14,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <deque>
 #include <cmath>
 #include <sstream>
 #include <string>
@@ -1592,7 +1593,7 @@ int main(int argc, char **argv)
 
     // Parse JSON files or standard input
     std::vector<std::unique_ptr<Node>> roots;
-    std::vector<json> jsonDocs;
+    std::deque<json> jsonDocs; // deque guarantees stable addresses for elements
     bool anyParsed = false;
     bool allParsed = true;
     for (const char *filename : files)
