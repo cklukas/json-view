@@ -11,7 +11,7 @@ useful for quickly inspecting large files directly from the command line.
 * Expand and collapse nodes with the arrow keys or the mouse.
 * Search keys or values and jump between matches.
 * Open multiple files or read JSON from standard input.
-* Optional mouse support for selection and expansion.
+* Mouse interactions: click to select, click left of a label or double-click to expand/collapse, click footer hints, click help dialog to close.
 * `--parse-only` mode for pretty-printing JSON without the interactive viewer.
 
 ## Requirements
@@ -71,12 +71,14 @@ json-view -V
 # or read from standard input
 cat file1.json | json-view
 cat file1.json | json-view --parse-only
+# disable mouse support
+json-view --no-mouse file1.json
 ```
 
 If no file argument is supplied `json-view` will read a single JSON document
 from standard input.  With `--parse-only` the input is formatted and printed to
-standard output. Without it, the interface uses the arrow keys to navigate and
-`q` to quit.
+standard output. Without it, the interface uses the arrow keys (and the mouse)
+to navigate; `--no-mouse` disables mouse handling entirely.
 
 ### Key bindings
 
@@ -92,6 +94,7 @@ standard output. Without it, the interface uses the arrow keys to navigate and
 * `y` – copy selected JSON to clipboard (OSC 52 when supported)
 * `?` – show a help screen
 * `q` – quit the viewer
+* Mouse – click to select, click left of a label or double-click to expand/collapse, click footer hints, click anywhere on the help screen to close it
 
 ## Documentation
 

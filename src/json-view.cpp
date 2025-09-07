@@ -159,6 +159,16 @@ struct SearchState
     int currentIndex = 0;
 };
 
+// Structure describing clickable hint regions in the status bar
+struct ClickHint
+{
+    char key;   // key to simulate when clicked
+    int start;  // inclusive column start
+    int end;    // exclusive column end
+};
+
+static std::vector<ClickHint> clickableHints;
+
 // Forward declaration for getContentLabel with search state
 static std::string getContentLabelWithSearch(const Node *node, const SearchState &search, int maxWidth = 80);
 
@@ -1121,7 +1131,12 @@ static void showHelp()
     addstr("┘");
 
     refresh();
-    getch();
+    int ch = getch();
+    if (ch == KEY_MOUSE)
+    {
+        MEVENT ev;
+        getmouse(&ev); // discard, clicking anywhere closes
+    }
 }
 
 // Prompt the user for a search term.  The prompt appears on the
@@ -1154,8 +1169,8 @@ static void showUsage(const char *progName)
 {
     std::cout << "json-view - Interactive JSON viewer with tree navigation\n\n";
     std::cout << "USAGE:\n";
-    std::cout << "  " << progName << " [--parse-only] [file1.json] [file2.json] ...\n";
-    std::cout << "  cat data.json | " << progName << " [--parse-only]\n\n";
+    std::cout << "  " << progName << " [--parse-only] [--no-mouse] [file1.json] [file2.json] ...\n";
+    std::cout << "  cat data.json | " << progName << " [--parse-only] [--no-mouse]\n\n";
     std::cout << "DESCRIPTION:\n";
     std::cout << "  A simple console JSON viewer using ncurses for interactive tree navigation.\n";
     std::cout << "  Pass JSON file names as arguments to open them, or pipe JSON into the program\n";
@@ -1175,11 +1190,13 @@ static void showUsage(const char *progName)
     std::cout << "  c         Clear search results\n";
     std::cout << "  y         Copy selected JSON to clipboard\n";
     std::cout << "  ?         Show help screen\n";
-    std::cout << "  q         Quit the program\n\n";
+    std::cout << "  q         Quit the program\n";
+    std::cout << "  Mouse     Click to select, click left of label or double-click to expand/collapse, click footer hints, click help screen to close\n\n";
     std::cout << "OPTIONS:\n";
     std::cout << "  -h, --help        Show this help message\n";
     std::cout << "  -V, --version     Show version information\n";
-    std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n\n";
+    std::cout << "  -p, --parse-only  Parse input and pretty-print JSON then exit\n";
+    std::cout << "      --no-mouse    Disable mouse support\n\n";
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << progName << " config.json data.json\n";
     std::cout << "  " << progName << " --parse-only config.json\n";
@@ -1469,6 +1486,8 @@ static void drawStatusBar(int statusRow, size_t selected, const std::vector<cons
                           const SearchState &search, int cols, bool colours)
 {
     std::string status;
+    clickableHints.clear();
+
     // Show path of selected node
     {
         const Node *cur = visible[selected];
@@ -1500,21 +1519,44 @@ static void drawStatusBar(int statusRow, size_t selected, const std::vector<cons
         }
         status = path.empty() ? "/" : path;
     }
-    // Append search info
+
+    int curWidth = getDisplayWidth(status);
+
+    auto addHint = [&](char key, const std::string &label, bool addComma) {
+        if (addComma)
+        {
+            status += ", ";
+            curWidth += 2;
+        }
+        int start = curWidth;
+        std::string token = std::string(1, key) + ":" + label;
+        status += token;
+        curWidth += token.size();
+        clickableHints.push_back({key, start, curWidth});
+    };
+
     if (!search.term.empty())
     {
         int total = search.matches.size();
         int curIdx = (total == 0 ? 0 : search.currentIndex + 1);
         status += "   [search '" + search.term + "' " + std::to_string(curIdx) + "/" + std::to_string(total) + "]";
-
-        // Add search navigation hints when search is active
-        status += "   (n:next, N:prev, c:clear)";
+        curWidth = getDisplayWidth(status);
+        status += "   (";
+        curWidth += 4;
+        addHint('n', "next", false);
+        addHint('N', "prev", true);
+        addHint('c', "clear", true);
+        status += ")";
     }
     else
     {
-        // Append short help when not searching
-        status += "   (?:help, q:quit)";
+        status += "   (";
+        curWidth += 4;
+        addHint('?', "help", false);
+        addHint('q', "quit", true);
+        status += ")";
     }
+
     if (getDisplayWidth(status) > cols)
     {
         status = status.substr(0, cols);
@@ -1558,6 +1600,7 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
 
     bool parseOnly = false;
+    bool enableMouse = true;
     std::vector<const char *> files;
     for (int i = 1; i < argc; ++i)
     {
@@ -1577,6 +1620,11 @@ int main(int argc, char **argv)
         if (strcmp(arg, "--parse-only") == 0 || strcmp(arg, "-p") == 0)
         {
             parseOnly = true;
+            continue;
+        }
+        if (strcmp(arg, "--no-mouse") == 0)
+        {
+            enableMouse = false;
             continue;
         }
         files.push_back(arg);
@@ -1687,6 +1735,10 @@ int main(int argc, char **argv)
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
+    if (enableMouse)
+    {
+        mousemask(ALL_MOUSE_EVENTS, NULL);
+    }
 
     // Enable UTF-8 support in ncurses
     if (has_colors())
@@ -1952,6 +2004,63 @@ int main(int argc, char **argv)
         int ch = getch();
         switch (ch)
         {
+        case KEY_MOUSE:
+        {
+            MEVENT ev;
+            if (getmouse(&ev) == OK)
+            {
+                int rows, cols;
+                getmaxyx(stdscr, rows, cols);
+                int displayRows = rows - 1;
+                if (ev.bstate & BUTTON1_DOUBLE_CLICKED)
+                {
+                    if (ev.y < displayRows)
+                    {
+                        size_t idx = scrollOffset + ev.y;
+                        if (idx < visible.size())
+                        {
+                            selected = idx;
+                            Node *n = const_cast<Node *>(visible[selected]);
+                            if (!n->children.empty())
+                            {
+                                n->expanded = !n->expanded;
+                                needPartialRedraw = true;
+                            }
+                        }
+                    }
+                }
+                else if (ev.bstate & BUTTON1_CLICKED)
+                {
+                    if (ev.y < displayRows)
+                    {
+                        size_t idx = scrollOffset + ev.y;
+                        if (idx < visible.size())
+                        {
+                            selected = idx;
+                            Node *n = const_cast<Node *>(visible[selected]);
+                            int prefixClick = getDisplayWidth(buildPrefix(n)) + 2;
+                            if (ev.x < prefixClick && !n->children.empty())
+                            {
+                                n->expanded = !n->expanded;
+                                needPartialRedraw = true;
+                            }
+                        }
+                    }
+                    else if (ev.y == rows - 1)
+                    {
+                        for (const auto &h : clickableHints)
+                        {
+                            if (ev.x >= h.start && ev.x < h.end)
+                            {
+                                ungetch(h.key);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        break;
         case KEY_UP:
         case 'k':
             if (selected > 0)

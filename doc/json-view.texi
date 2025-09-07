@@ -90,6 +90,8 @@ cat data.json | json-view
 Display a short usage summary and exit.
 @item -V, --version
 Show version information and exit.
+@item --no-mouse
+Disable mouse support and use only the keyboard.
 @end table
 
 @node Key Bindings
@@ -112,6 +114,7 @@ Show version information and exit.
 @item @kbd{y} -- copy selected JSON to the clipboard (OSC 52 when available)
 @item @kbd{?} -- show the help screen
 @item @kbd{q} -- quit
+@item Mouse -- click to select, click left of a label or double-click to expand/collapse, click footer hints to trigger actions, click anywhere in the help screen to close it
 @end itemize
 
 @node Concept Index
