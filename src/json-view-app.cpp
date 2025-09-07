@@ -12,6 +12,10 @@
 #define Uses_TFileDialog
 #define Uses_TOutline
 #define Uses_TScrollBar
+#define Uses_TRadioButtons
+#define Uses_TButton
+#define Uses_TLabel
+#define Uses_TSItem
 #define Uses_TStatusLine
 #define Uses_TStatusItem
 #define Uses_TStatusDef
@@ -73,6 +77,32 @@ public:
             focused(finder.found);
         }
     }
+
+    virtual void handleEvent(TEvent &event) override
+    {
+        if (event.what == evMouseDown && (event.mouse.buttons & mbLeftButton))
+        {
+            int clickX = event.mouse.where.x;
+            TOutline::handleEvent(event);
+            JsonTNode *node = focusedNode();
+            if (node)
+            {
+                int depth = 0;
+                for (const Node *p = node->jsonNode; p && p->parent; p = p->parent)
+                    ++depth;
+                int prefixWidth = depth * 2 + 2;
+                if (clickX < prefixWidth)
+                {
+                    node->expanded = node->expanded ? False : True;
+                    update();
+                }
+            }
+        }
+        else
+        {
+            TOutline::handleEvent(event);
+        }
+    }
 };
 
 class JsonViewApp : public TApplication
@@ -103,6 +133,16 @@ static const ushort cmFind = 1000;
 static const ushort cmFindNext = 1001;
 static const ushort cmFindPrev = 1002;
 static const ushort cmAbout = 1003;
+static const ushort cmLevel0 = 1100;
+static const ushort cmLevel1 = 1101;
+static const ushort cmLevel2 = 1102;
+static const ushort cmLevel3 = 1103;
+static const ushort cmLevel4 = 1104;
+static const ushort cmLevel5 = 1105;
+static const ushort cmLevel6 = 1106;
+static const ushort cmLevel7 = 1107;
+static const ushort cmLevel8 = 1108;
+static const ushort cmLevel9 = 1109;
 
 JsonViewApp::JsonViewApp(int argc, char **argv)
     : TProgInit(&JsonViewApp::initStatusLine, &JsonViewApp::initMenuBar, &TApplication::initDeskTop),
@@ -115,6 +155,21 @@ JsonViewApp::JsonViewApp(int argc, char **argv)
 void JsonViewApp::handleEvent(TEvent &event)
 {
     TApplication::handleEvent(event);
+    if (event.what == evKeyDown)
+    {
+        if ((event.keyDown.controlKeyState & kbCtrlShift) &&
+            event.keyDown.keyCode >= '0' && event.keyDown.keyCode <= '9')
+        {
+            if (root)
+            {
+                int level = event.keyDown.keyCode - '0';
+                expandToLevel(root.get(), level, 0);
+                outline->update();
+            }
+            clearEvent(event);
+            return;
+        }
+    }
     if (event.what == evCommand)
     {
         switch (event.message.command)
@@ -139,6 +194,23 @@ void JsonViewApp::handleEvent(TEvent &event)
             {
                 search.currentIndex = (search.currentIndex - 1 + search.matches.size()) % search.matches.size();
                 outline->focusNode(nodeMap[search.matches[search.currentIndex]]);
+            }
+            break;
+        case cmLevel0:
+        case cmLevel1:
+        case cmLevel2:
+        case cmLevel3:
+        case cmLevel4:
+        case cmLevel5:
+        case cmLevel6:
+        case cmLevel7:
+        case cmLevel8:
+        case cmLevel9:
+            if (root)
+            {
+                int level = event.message.command - cmLevel0;
+                expandToLevel(root.get(), level, 0);
+                outline->update();
             }
             break;
         case cmAbout:
@@ -262,13 +334,29 @@ void JsonViewApp::doSearch(bool newTerm)
         return;
     if (newTerm)
     {
-        char buf[256] = "";
-        if (inputBox("Search", "Search for:", buf, 255) != cmCancel)
+        struct SearchDialogData
+        {
+            char term[256];
+            ushort mode;
+        } data{{""}, 0};
+        TDialog *d = new TDialog(TRect(0, 0, 40, 12), "Search");
+        d->options |= ofCentered;
+        auto *il = new TInputLine(TRect(3, 3, 35, 4), 255);
+        d->insert(il);
+        d->insert(new TLabel(TRect(2, 2, 12, 3), "~T~erm:", il));
+        auto *rb = new TRadioButtons(TRect(3, 5, 35, 8),
+                                     new TSItem("~K~eys",
+                                                new TSItem("~V~alues",
+                                                           new TSItem("~B~oth", nullptr))));
+        d->insert(rb);
+        d->insert(new TButton(TRect(9, 9, 19, 11), "O~K~", cmOK, bfDefault));
+        d->insert(new TButton(TRect(21, 9, 31, 11), "Cancel", cmCancel, bfNormal));
+        if (executeDialog(d, &data) != cmCancel)
         {
             search.matches.clear();
-            search.term = buf;
-            search.searchKeys = true;
-            search.searchValues = false;
+            search.term = data.term;
+            search.searchKeys = (data.mode != 1);
+            search.searchValues = (data.mode != 0);
             searchTree(root.get(), search.term, search.searchKeys, search.searchValues, search.matches);
             search.currentIndex = 0;
         }
@@ -316,6 +404,17 @@ TMenuBar *JsonViewApp::initMenuBar(TRect r)
                             *new TMenuItem("E~x~it", cmQuit, kbAltX, hcNoContext) +
                         *new TSubMenu("~E~dit", hcNoContext) +
                             *new TMenuItem("~C~opy", cmCopy, kbCtrlC, hcNoContext) +
+                        *new TSubMenu("~V~iew", hcNoContext) +
+                            *new TMenuItem("Level ~0~", cmLevel0, kbAlt0, hcNoContext) +
+                            *new TMenuItem("Level ~1~", cmLevel1, kbAlt1, hcNoContext) +
+                            *new TMenuItem("Level ~2~", cmLevel2, kbAlt2, hcNoContext) +
+                            *new TMenuItem("Level ~3~", cmLevel3, kbAlt3, hcNoContext) +
+                            *new TMenuItem("Level ~4~", cmLevel4, kbAlt4, hcNoContext) +
+                            *new TMenuItem("Level ~5~", cmLevel5, kbAlt5, hcNoContext) +
+                            *new TMenuItem("Level ~6~", cmLevel6, kbAlt6, hcNoContext) +
+                            *new TMenuItem("Level ~7~", cmLevel7, kbAlt7, hcNoContext) +
+                            *new TMenuItem("Level ~8~", cmLevel8, kbAlt8, hcNoContext) +
+                            *new TMenuItem("Level ~9~", cmLevel9, kbAlt9, hcNoContext) +
                         *new TSubMenu("~S~earch", hcNoContext) +
                             *new TMenuItem("~F~ind", cmFind, kbCtrlF, hcNoContext) +
                             *new TMenuItem("Find ~N~ext", cmFindNext, kbF3, hcNoContext) +

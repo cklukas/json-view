@@ -449,16 +449,17 @@ void searchTree(const Node *node, const std::string &term,
     // Convert the node's key and value to lowercase strings
     if (!term.empty())
     {
+        bool matched = false;
         if (searchKeys)
         {
             std::string keyLower = node->key;
             std::transform(keyLower.begin(), keyLower.end(), keyLower.begin(), ::tolower);
             if (keyLower.find(term) != std::string::npos)
             {
-                out.push_back(node);
+                matched = true;
             }
         }
-        if (!searchKeys && searchValues)
+        if (searchValues)
         {
             // Convert value to a displayable string
             std::string val;
@@ -481,8 +482,12 @@ void searchTree(const Node *node, const std::string &term,
             std::transform(valLower.begin(), valLower.end(), valLower.begin(), ::tolower);
             if (valLower.find(term) != std::string::npos)
             {
-                out.push_back(node);
+                matched = true;
             }
+        }
+        if (matched)
+        {
+            out.push_back(node);
         }
     }
     // Continue search through children
