@@ -24,8 +24,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(APPLE)
-  set(CURSES_INCLUDE_PATH "/opt/homebrew/opt/ncurses/include")
-  set(CURSES_LIBRARY "/opt/homebrew/opt/ncurses/lib/libncurses.dylib")
+  find_program(BREW brew)
+  if(BREW)
+    execute_process(
+      COMMAND ${BREW} --prefix ncurses
+      OUTPUT_VARIABLE NCURSES_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    list(APPEND CMAKE_PREFIX_PATH "${NCURSES_PREFIX}")
+  endif()
 endif()
 
 set(CURSES_NEED_WIDE TRUE)
