@@ -6,6 +6,63 @@ documents as an interactive tree using
 [nlohmann/json](https://github.com/nlohmann/json) library.  The viewer is
 useful for quickly inspecting large files directly from the command line.
 
+```
+▼ /tmp/test.json (📦 dictionary, 7 keys, 951 Bytes)
+├── ☒ active: true
+├── ▼ deeply_nested (dictionary, 1 key)
+│   └── ▶ level1 (dictionary, 1 key)
+├── ▼ items (list, 8 items)
+│   ├── ⊘ [0]: null
+│   ├── ☐ [1]: false
+│   ├── ☒ [2]: true
+│   ├── ⅑ [3]: 0
+│   ├── ⅑ [4]: -123.456
+│   ├── ℀ [5]: "a string with \"quotes\" and unicode ✓"
+│   ├── ▶ [6] (list, 4 items): 1, 2, 3, {...}
+│   └── ▶ [7] (dictionary, 2 keys)
+├── ▼ metadata (dictionary, 3 keys)
+│   ├── ▶ contributors (list, 2 items): {...}, {...}
+│   ├── ℀ description: "Nested structures with various types"
+│   └── ▶ tags (list, 3 items): "json", "test", "viewer"
+├── ℀ name: "Sample Dataset"
+├── ▼ stats (dictionary, 3 keys)
+│   ├── ⅑ count: 42
+│   ├── ▶ invalid_values (dictionary, 3 keys)
+│   └── ⅑ ratio: 0.61803398875
+└── ⅑ version: 1
+
+
+
+test.json   (?:help, q:quit)
+```
+
+```
+
+                        ┌───────────────────────────────────────────────────────────────────────────────────┐
+                        │  JSON Viewer Key Bindings:                                                        │
+                        │                                                                                   │
+                        │    ↑/↓              Move selection up or down                                     │
+                        │    PgUp/PgDn        Move one page up or down                                      │
+                        │    Home/End         Jump to first or last item                                    │
+                        │    ←                Collapse the current item or go to its parent                 │
+                        │    →                Expand the current item                                       │
+                        │    +                Expand all items                                              │
+                        │    -                Collapse all items                                            │
+                        │    0-9              Expand to nesting level (0=collapse all, 1=first level, etc.) │
+                        │    s                Search keys                                                   │
+                        │    S                Search values                                                 │
+                        │    n / N            Next / previous search match                                  │
+                        │    c                Clear search results                                          │
+                        │    y                Copy selected JSON to clipboard                               │
+                        │    ?                Show this help screen                                         │
+                        │    q                Quit the program                                              │
+                        │                                                                                   │
+                        │  Press any key to return...                                                       │
+                        └───────────────────────────────────────────────────────────────────────────────────┘
+
+
+```
+
 ## Features
 
 * Expand and collapse nodes with the arrow keys or the mouse.
