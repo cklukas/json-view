@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
@@ -72,6 +73,69 @@ namespace ColorScheme
 
 using json = nlohmann::json;
 
+// Custom SAX parser that handles unquoted NaN and Infinity values
+class robust_sax_parser : public nlohmann::json_sax<json>
+{
+    using number_integer_t = json::number_integer_t;
+    using number_unsigned_t = json::number_unsigned_t;
+    using number_float_t = json::number_float_t;
+    using string_t = json::string_t;
+    using binary_t = json::binary_t;
+
+public:
+    explicit robust_sax_parser(json *j)
+        : dom_parser(*j, /*allow_exceptions=*/true)
+    {
+    }
+
+    bool null() override { return dom_parser.null(); }
+
+    bool boolean(bool val) override { return dom_parser.boolean(val); }
+
+    bool number_integer(number_integer_t val) override { return dom_parser.number_integer(val); }
+
+    bool number_unsigned(number_unsigned_t val) override { return dom_parser.number_unsigned(val); }
+
+    bool number_float(number_float_t, const string_t &s) override
+    {
+        if (s == "NaN")
+        {
+            return dom_parser.number_float(std::numeric_limits<double>::quiet_NaN(), s);
+        }
+        if (s == "Infinity")
+        {
+            return dom_parser.number_float(std::numeric_limits<double>::infinity(), s);
+        }
+        if (s == "-Infinity")
+        {
+            return dom_parser.number_float(-std::numeric_limits<double>::infinity(), s);
+        }
+        return dom_parser.number_float(std::stod(s), s);
+    }
+
+    bool string(string_t &val) override { return dom_parser.string(val); }
+
+    bool binary(binary_t &val) override { return dom_parser.binary(val); }
+
+    bool start_object(std::size_t len) override { return dom_parser.start_object(len); }
+
+    bool key(string_t &val) override { return dom_parser.key(val); }
+
+    bool end_object() override { return dom_parser.end_object(); }
+
+    bool start_array(std::size_t len) override { return dom_parser.start_array(len); }
+
+    bool end_array() override { return dom_parser.end_array(); }
+
+    bool parse_error(std::size_t position, const std::string &last_token, const nlohmann::detail::exception &ex) override
+    {
+        return dom_parser.parse_error(position, last_token, ex);
+    }
+
+private:
+    nlohmann::detail::json_sax_dom_parser<json> dom_parser;
+};
+
 // A Node represents a single entry in the tree.  Each node holds a
 // pointer into the underlying JSON document and a list of child nodes
 // for objects and arrays.  Nodes store their key (for object
@@ -102,7 +166,6 @@ static void expandToLevel(Node *node, int level, int currentLevel = 0);
 static bool supportsClipboard();
 static std::string getClipboardStatusMessage();
 static std::string base64Encode(const std::string &input);
-static std::string preprocessJsonContent(const std::string &content);
 static void copyToClipboard(const std::string &text);
 static json reconstructJson(const Node *node);
 static std::string formatFileSize(size_t size);
@@ -1450,90 +1513,6 @@ static void drawFromRowDownwards(int startRow, int scrollOffset, const std::vect
     drawStatusBar(rows - 1, selected, visible, search, cols, colours);
 }
 
-// Preprocesses JSON content to handle non-standard values like unquoted NaN
-static std::string preprocessJsonContent(const std::string &content)
-{
-    std::string result = content;
-
-    // Replace unquoted NaN, Infinity, and -Infinity with quoted strings
-    // This is a simple regex-free approach to handle the most common cases
-    std::string::size_type pos = 0;
-
-    // Replace standalone NaN (with word boundaries)
-    while ((pos = result.find(": NaN", pos)) != std::string::npos)
-    {
-        result.replace(pos, 5, ": null");
-        pos += 6;
-    }
-
-    pos = 0;
-    while ((pos = result.find(": Infinity", pos)) != std::string::npos)
-    {
-        result.replace(pos, 10, ": null");
-        pos += 6;
-    }
-
-    pos = 0;
-    while ((pos = result.find(": -Infinity", pos)) != std::string::npos)
-    {
-        result.replace(pos, 11, ": null");
-        pos += 6;
-    }
-
-    // Also handle cases with arrays: [NaN, ...]
-    pos = 0;
-    while ((pos = result.find("[NaN", pos)) != std::string::npos)
-    {
-        result.replace(pos, 4, "[null");
-        pos += 5;
-    }
-
-    pos = 0;
-    while ((pos = result.find(", NaN", pos)) != std::string::npos)
-    {
-        result.replace(pos, 5, ", null");
-        pos += 6;
-    }
-
-    pos = 0;
-    while ((pos = result.find(" NaN,", pos)) != std::string::npos)
-    {
-        result.replace(pos, 5, " null,");
-        pos += 6;
-    }
-
-    pos = 0;
-    while ((pos = result.find(" NaN]", pos)) != std::string::npos)
-    {
-        result.replace(pos, 5, " null]");
-        pos += 6;
-    }
-
-    // Similar for Infinity
-    pos = 0;
-    while ((pos = result.find("[Infinity", pos)) != std::string::npos)
-    {
-        result.replace(pos, 9, "[null");
-        pos += 5;
-    }
-
-    pos = 0;
-    while ((pos = result.find(", Infinity", pos)) != std::string::npos)
-    {
-        result.replace(pos, 10, ", null");
-        pos += 6;
-    }
-
-    pos = 0;
-    while ((pos = result.find(", -Infinity", pos)) != std::string::npos)
-    {
-        result.replace(pos, 11, ", null");
-        pos += 6;
-    }
-
-    return result;
-}
-
 // Entry point
 int main(int argc, char **argv)
 {
@@ -1582,15 +1561,22 @@ int main(int argc, char **argv)
 
         try
         {
-            // Preprocess content to handle NaN values
-            std::string processedContents = preprocessJsonContent(contents);
-            json doc = json::parse(processedContents);
-            jsonDocs.push_back(std::move(doc));
-            const json *ptr = &jsonDocs.back();
-            // Use the filename as the dummy root key
-            Node *root = buildTree(ptr, filename, nullptr, true);
-            // Mark last root later
-            roots.push_back(root);
+            json doc;
+            robust_sax_parser sax_parser(&doc);
+            bool success = json::sax_parse(contents, &sax_parser);
+            if (success)
+            {
+                jsonDocs.push_back(std::move(doc));
+                const json *ptr = &jsonDocs.back();
+                // Use the filename as the dummy root key
+                Node *root = buildTree(ptr, filename, nullptr, true);
+                // Mark last root later
+                roots.push_back(root);
+            }
+            else
+            {
+                std::cerr << "Failed to parse JSON with custom SAX parser in " << filename << std::endl;
+            }
         }
         catch (const std::exception &ex)
         {
@@ -1611,13 +1597,20 @@ int main(int argc, char **argv)
 
             try
             {
-                // Preprocess content to handle NaN values
-                std::string processedContents = preprocessJsonContent(contents);
-                json doc = json::parse(processedContents);
-                jsonDocs.push_back(std::move(doc));
-                const json *ptr = &jsonDocs.back();
-                Node *root = buildTree(ptr, "(stdin)", nullptr, true);
-                roots.push_back(root);
+                json doc;
+                robust_sax_parser sax_parser(&doc);
+                bool success = json::sax_parse(contents, &sax_parser);
+                if (success)
+                {
+                    jsonDocs.push_back(std::move(doc));
+                    const json *ptr = &jsonDocs.back();
+                    Node *root = buildTree(ptr, "(stdin)", nullptr, true);
+                    roots.push_back(root);
+                }
+                else
+                {
+                    std::cerr << "Failed to parse JSON with custom SAX parser from stdin" << std::endl;
+                }
             }
             catch (const std::exception &ex)
             {
