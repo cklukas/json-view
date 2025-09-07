@@ -2,8 +2,11 @@
 set -euo pipefail
 PREFIX="${1:-/usr/local}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-install -Dm755 "$SCRIPT_DIR/bin/json-view" "$PREFIX/bin/json-view"
-install -Dm644 "$SCRIPT_DIR/share/man/man1/json-view.1" "$PREFIX/share/man/man1/json-view.1"
-install -Dm644 "$SCRIPT_DIR/share/info/json-view.texi" "$PREFIX/share/info/json-view.texi"
+
+# Ensure target directories exist (BSD install on macOS lacks -D)
+install -d "$PREFIX/bin" "$PREFIX/share/man/man1" "$PREFIX/share/info"
+install -m 755 "$SCRIPT_DIR/bin/json-view" "$PREFIX/bin/json-view"
+install -m 644 "$SCRIPT_DIR/share/man/man1/json-view.1" "$PREFIX/share/man/man1/json-view.1"
+install -m 644 "$SCRIPT_DIR/share/info/json-view.texi" "$PREFIX/share/info/json-view.texi"
 
 echo "json-view installed to $PREFIX"
