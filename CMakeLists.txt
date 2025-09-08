@@ -81,6 +81,9 @@ if(BUILD_JSON_VIEW_APP)
   # Disable unnecessary tvision components.
   set(TV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(TV_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  if(APPLE)
+    include_directories(BEFORE ${CMAKE_SOURCE_DIR}/cmake/compat)
+  endif()
   if(JSON_VIEW_STATIC)
     set(TV_BUILD_USING_GPM OFF CACHE BOOL "" FORCE)
     # Ensure tvision resolves static ncurses libraries.
