@@ -54,6 +54,18 @@ jobs:
           cpack -G DEB
           cpack -G RPM
 
+      - name: Build static RPM
+        if: runner.os == 'Linux'
+        run: scripts/build-static-rpm.sh
+
+      - name: Build Amazon Linux 2023 RPM
+        if: runner.os == 'Linux'
+        run: |
+          docker run --rm -v $PWD:/src -w /src amazonlinux:2023 \
+            bash -lc 'dnf install -y cmake gcc gcc-c++ make rpm-build tar && scripts/build-al2023-rpm.sh'
+          VERSION=${GITHUB_REF_NAME#v}
+          mv json-view-${VERSION}-Linux.rpm json-view-${VERSION}-amazonlinux2023.rpm
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
         with:
@@ -61,5 +73,7 @@ jobs:
             json-view-*.tar.gz
             build/*.deb
             build/*.rpm
+            json-view-static-*.rpm
+            json-view-*amazonlinux2023*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
