@@ -78,19 +78,23 @@ target_link_libraries(json-view PRIVATE json_view_core ${CURSES_LIBRARIES})
 # Fetch Turbo Vision for the alternate frontend if enabled
 if(BUILD_JSON_VIEW_APP)
   include(FetchContent)
-  set(tv_cmake_args -DTV_BUILD_EXAMPLES=OFF -DTV_BUILD_TESTS=OFF)
+  # Disable unnecessary tvision components.
+  set(TV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(TV_BUILD_TESTS OFF CACHE BOOL "" FORCE)
   if(JSON_VIEW_STATIC)
-    list(APPEND tv_cmake_args -DTV_BUILD_USING_GPM=OFF -DCMAKE_FIND_LIBRARY_SUFFIXES=.a)
+    set(TV_BUILD_USING_GPM OFF CACHE BOOL "" FORCE)
+    # Ensure tvision resolves static ncurses libraries.
+    set(_tv_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
   endif()
   FetchContent_Declare(
     tvision
     GIT_REPOSITORY https://github.com/magiblot/tvision.git
     GIT_TAG 7ecc590ac59b163a876da50867c69bba605cebfc
-    CMAKE_ARGS ${tv_cmake_args}
   )
   FetchContent_MakeAvailable(tvision)
-
   if(JSON_VIEW_STATIC)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_tv_suffixes})
     # Replace tvision's ncurses and tinfo dependencies with explicit static
     # libraries resolved above.
     get_target_property(_tv_libs tvision INTERFACE_LINK_LIBRARIES)
