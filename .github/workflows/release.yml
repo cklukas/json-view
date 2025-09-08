@@ -21,7 +21,7 @@ jobs:
 
       - name: Install packaging deps
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm
+        run: sudo apt-get update && sudo apt-get install -y rpm libncurses-dev
 
       - name: Install ncurses
         if: runner.os == 'macOS'
@@ -59,7 +59,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           docker run --rm -v $PWD:/src -w /src amazonlinux:2023 \
-            bash -lc 'dnf install -y cmake gcc gcc-c++ make rpm-build tar && scripts/build-al2023-rpm.sh'
+            bash -lc 'dnf install -y cmake gcc gcc-c++ make ncurses-devel git rpm-build tar && scripts/build-al2023-rpm.sh'
           VERSION=${GITHUB_REF_NAME#v}
           mv json-view-${VERSION}-Linux.rpm json-view-${VERSION}-amazonlinux2023.rpm
 
