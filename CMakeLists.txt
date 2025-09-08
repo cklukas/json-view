@@ -46,23 +46,6 @@ if(NOT CURSES_FOUND)
   message(FATAL_ERROR "Could not find ncurses; install ncurses or set CMAKE_PREFIX_PATH")
 endif()
 
-# When building static binaries we prefer linking against the static variant of
-# ncurses to avoid hard dependencies on the system's libncursesw. Override the
-# library list returned by FindCurses with plain library names so the linker
-# can pick the `.a` files.
-option(JSON_VIEW_STATIC "Link json-view binaries statically" OFF)
-if(JSON_VIEW_STATIC)
-  # Resolve static ncurses libraries explicitly to avoid pulling in the
-  # dynamic versions via linker scripts.
-  set(_orig_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
-  set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
-  find_library(NCURSESW_LIB ncursesw REQUIRED)
-  find_library(FORMW_LIB formw REQUIRED)
-  find_library(TINFO_LIB tinfo REQUIRED)
-  set(CURSES_LIBRARIES ${NCURSESW_LIB} ${FORMW_LIB} ${TINFO_LIB})
-  set(CMAKE_FIND_LIBRARY_SUFFIXES ${_orig_suffixes})
-endif()
-
 # Option to build the Turbo Vision based frontend.
 option(BUILD_JSON_VIEW_APP "Build Turbo Vision based json-view-app" ON)
 
@@ -84,45 +67,17 @@ if(BUILD_JSON_VIEW_APP)
   if(APPLE)
     include_directories(BEFORE ${CMAKE_SOURCE_DIR}/cmake/compat)
   endif()
-  if(JSON_VIEW_STATIC)
-    set(TV_BUILD_USING_GPM OFF CACHE BOOL "" FORCE)
-    # Ensure tvision resolves static ncurses libraries.
-    set(_tv_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
-  endif()
   FetchContent_Declare(
     tvision
     GIT_REPOSITORY https://github.com/magiblot/tvision.git
     GIT_TAG 7ecc590ac59b163a876da50867c69bba605cebfc
   )
   FetchContent_MakeAvailable(tvision)
-  if(JSON_VIEW_STATIC)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_tv_suffixes})
-    # Replace tvision's ncurses and tinfo dependencies with explicit static
-    # libraries resolved above.
-    get_target_property(_tv_libs tvision INTERFACE_LINK_LIBRARIES)
-    if(_tv_libs)
-      list(FILTER _tv_libs EXCLUDE REGEX "ncursesw|tinfo")
-    endif()
-    list(APPEND _tv_libs ${NCURSESW_LIB} ${FORMW_LIB} ${TINFO_LIB})
-    set_target_properties(tvision PROPERTIES INTERFACE_LINK_LIBRARIES "${_tv_libs}")
-  endif()
 
   add_executable(json-view-app src/json-view-app.cpp)
   target_include_directories(json-view-app PRIVATE ${CMAKE_SOURCE_DIR}/include)
   target_compile_definitions(json-view-app PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSION}")
   target_link_libraries(json-view-app PRIVATE json_view_core tvision::tvision ${CURSES_LIBRARIES})
-endif()
-
-# Optionally build fully static binaries to avoid runtime dependencies on
-# specific versions of glibc or ncurses. This is useful when targeting
-# platforms like Amazon Linux 2023 whose system libraries may be older than
-# those used to build the package. Enable with `-DJSON_VIEW_STATIC=ON`.
-if(JSON_VIEW_STATIC)
-  target_link_options(json-view PRIVATE -static -static-libgcc -static-libstdc++)
-  if(TARGET json-view-app)
-    target_link_options(json-view-app PRIVATE -static -static-libgcc -static-libstdc++)
-  endif()
 endif()
 
 file(GLOB EXAMPLE_JSON_FILES "${CMAKE_SOURCE_DIR}/examples/*.json")
@@ -157,12 +112,4 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "libncursesw5 (>= 6.2) | libncurses6, libtvisio
 set(CPACK_RPM_PACKAGE_REQUIRES "ncurses, tvision")
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-
-if(JSON_VIEW_STATIC)
-  # Static builds do not require ncurses or tvision at runtime and are
-  # distributed under a separate package name to avoid confusion with the
-  # dynamically linked RPM.
-  set(CPACK_PACKAGE_NAME "json-view-static")
-  set(CPACK_RPM_PACKAGE_REQUIRES "")
-endif()
 include(CPack)
