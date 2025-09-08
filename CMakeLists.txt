@@ -28,6 +28,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CURSES_NEED_WIDE TRUE)
 find_package(Curses QUIET)
 
+# On some systems (notably macOS with Homebrew), FindCurses points
+# CURSES_INCLUDE_PATH at the "ncursesw" subdirectory.  tvision expects the
+# parent directory to be on the include search path so that
+# "#include <ncursesw/ncurses.h>" can resolve its own headers like
+# "<ncursesw/unctrl.h>".  Normalize the include path here to avoid nested
+# "ncursesw/ncursesw" lookups.
+if(CURSES_INCLUDE_PATH MATCHES "/ncursesw$")
+  get_filename_component(_curses_parent "${CURSES_INCLUDE_PATH}" DIRECTORY)
+  set(CURSES_INCLUDE_PATH "${_curses_parent}" CACHE PATH "" FORCE)
+  set(CURSES_INCLUDE_DIR "${_curses_parent}" CACHE PATH "" FORCE)
+  set(CURSES_INCLUDE_DIRS "${_curses_parent}" CACHE PATH "" FORCE)
+endif()
+
 if(NOT CURSES_FOUND AND APPLE)
   find_program(BREW brew)
   if(BREW)
