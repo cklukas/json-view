@@ -60,8 +60,10 @@ jobs:
         run: |
           docker run --rm -v $PWD:/src -w /src amazonlinux:2023 \
             bash -lc 'dnf install -y cmake gcc gcc-c++ make ncurses-devel git rpm-build tar && scripts/build-al2023-rpm.sh'
-          VERSION=${GITHUB_REF_NAME#v}
-          mv json-view-${VERSION}-Linux.rpm json-view-${VERSION}-amazonlinux2023.rpm
+          RPM_FILE=$(ls json-view-*-Linux.rpm)
+          VERSION=${RPM_FILE#json-view-}
+          VERSION=${VERSION%-Linux.rpm}
+          mv "$RPM_FILE" "json-view-${VERSION}-amazonlinux2023.rpm"
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
