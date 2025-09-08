@@ -54,9 +54,6 @@ jobs:
           cpack -G DEB
           cpack -G RPM
 
-      - name: Build static RPM
-        if: runner.os == 'Linux'
-        run: scripts/build-static-rpm.sh
 
       - name: Build Amazon Linux 2023 RPM
         if: runner.os == 'Linux'
@@ -73,7 +70,6 @@ jobs:
             json-view-*.tar.gz
             build/*.deb
             build/*.rpm
-            json-view-static-*.rpm
             json-view-*amazonlinux2023*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

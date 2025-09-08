@@ -133,7 +133,6 @@ Tagged releases on GitHub provide pre-built packages:
 
 * Linux `.deb` and `.rpm`
 * Amazon Linux 2023 `.rpm`
-* Fully static `json-view-static` `.rpm`
 * `.tar.gz` archives for Linux and macOS containing `json-view`, docs, and an `install.sh` helper
 
 Download them from the repository's Releases page.
@@ -150,16 +149,6 @@ scripts/build-al2023-rpm.sh
 
 This generates a package equivalent to the default release but linked against
 the system-provided libraries.
-
-If a completely self-contained package is preferred, you can build a fully
-static variant instead:
-
-```sh
-scripts/build-static-rpm.sh
-```
-
-This produces a `json-view-static` RPM containing both `json-view` and
-`json-view-app` with no runtime library dependencies.
 
 ## Usage
 
