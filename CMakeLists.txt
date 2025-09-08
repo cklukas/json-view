@@ -87,6 +87,13 @@ if(BUILD_JSON_VIEW_APP)
   )
   FetchContent_MakeAvailable(tvision)
 
+  # Ensure tvision uses the normalized ncurses include path on macOS.
+  # tvision::tvision is an ALIAS target, so modify the actual "tvision"
+  # target to avoid CMake's ALIAS restrictions.
+  if(APPLE AND TARGET tvision)
+    target_include_directories(tvision SYSTEM BEFORE PUBLIC ${CURSES_INCLUDE_DIRS})
+  endif()
+
   add_executable(json-view-app src/json-view-app.cpp)
   target_include_directories(json-view-app PRIVATE ${CMAKE_SOURCE_DIR}/include)
   target_compile_definitions(json-view-app PRIVATE JSON_VIEW_VERSION="${PROJECT_VERSION}")
