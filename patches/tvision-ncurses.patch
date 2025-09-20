@@ -1,0 +1,16 @@
+diff --git a/include/tvision/internal/ncurdisp.h b/include/tvision/internal/ncurdisp.h
+--- a/include/tvision/internal/ncurdisp.h
++++ b/include/tvision/internal/ncurdisp.h
+@@ -7,11 +7,6 @@
+ #define Uses_TPoint
+ #include <tvision/tv.h>
+ 
+-#if defined(HAVE_NCURSESW_NCURSES_H)
+-#   include <ncursesw/ncurses.h>
+-#elif defined(HAVE_NCURSES_H)
+-#   include <ncurses.h>
+-#endif
+-
+ #if defined(__FreeBSD__)
+ #   include <sys/consio.h>
+ #endif

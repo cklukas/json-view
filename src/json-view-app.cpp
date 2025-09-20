@@ -219,7 +219,7 @@ public:
         {
             auto *i1 = new TStatusItem("~F2~ Open", kbF2, cmOpen);
             auto *i2 = new TStatusItem("~F3~ Find", kbF3, cmFind);
-            auto *i3 = new TStatusItem("~Ctrl+Q~ Quit", kbCtrlQ, cmQuit);
+            auto *i3 = new TStatusItem("~Alt-X~ Quit", kbAltX, cmQuit);
             i1->next = i2;
             i2->next = i3;
             chain = i1;
@@ -231,7 +231,7 @@ public:
                                std::to_string(s.matches.size());
             auto *i1 = new TStatusItem(info.c_str(), kbNoKey, 0);
             auto *i2 = new TStatusItem("~F3~ Next", kbF3, cmFindNext);
-            auto *i3 = new TStatusItem("~Shift+F3~ Prev", kbShiftF3, cmFindPrev);
+            auto *i3 = new TStatusItem("~Shift-F3~ Prev", kbShiftF3, cmFindPrev);
             auto *i4 = new TStatusItem("~Esc~ End Search", kbEsc, cmEndSearch);
             i1->next = i2;
             i2->next = i3;

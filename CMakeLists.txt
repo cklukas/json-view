@@ -49,6 +49,8 @@ if(NOT CURSES_FOUND AND APPLE)
       OUTPUT_VARIABLE NCURSES_PREFIX
       OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NCURSES_PREFIX)
+      set(CURSES_LIBRARY "${NCURSES_PREFIX}/lib/libncurses.dylib")
+      set(CURSES_INCLUDE_PATH "${NCURSES_PREFIX}/include")
       list(APPEND CMAKE_PREFIX_PATH "${NCURSES_PREFIX}")
       find_package(Curses REQUIRED)
     endif()
@@ -77,6 +79,7 @@ if(BUILD_JSON_VIEW_APP)
   # Disable unnecessary tvision components.
   set(TV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(TV_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(HAVE_NCURSESW_NCURSES_H OFF CACHE BOOL "" FORCE)
   if(APPLE)
     include_directories(BEFORE ${CMAKE_SOURCE_DIR}/cmake/compat)
   endif()
@@ -84,6 +87,12 @@ if(BUILD_JSON_VIEW_APP)
     tvision
     GIT_REPOSITORY https://github.com/magiblot/tvision.git
     GIT_TAG 7ecc590ac59b163a876da50867c69bba605cebfc
+    PATCH_COMMAND
+      ${CMAKE_COMMAND}
+        -DPATCH=${CMAKE_SOURCE_DIR}/patches/tvision-ncurses.patch
+        -DGIT_EXE=${GIT_EXECUTABLE}
+        -DSRC_DIR=<SOURCE_DIR>
+        -P ${CMAKE_SOURCE_DIR}/cmake/try_apply_patch.cmake
   )
   FetchContent_MakeAvailable(tvision)
 
@@ -93,6 +102,7 @@ if(BUILD_JSON_VIEW_APP)
   if(APPLE AND TARGET tvision)
     target_include_directories(tvision SYSTEM BEFORE PUBLIC ${CURSES_INCLUDE_DIRS})
   endif()
+  target_include_directories(tvision PRIVATE ${CURSES_INCLUDE_PATH})
 
   add_executable(json-view-app src/json-view-app.cpp)
   target_include_directories(json-view-app PRIVATE ${CMAKE_SOURCE_DIR}/include)
