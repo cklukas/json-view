@@ -45,6 +45,8 @@ json-view:
 test.json   (?:help, q:quit)
 ```
 
+json-view help screen:
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │  JSON Viewer Key Bindings:                                                        │
@@ -73,86 +75,6 @@ test.json   (?:help, q:quit)
 json-view-app:
 
 ```
-Last login: Mon Sep 15 20:25:32 on console
-/dev/fd/12:18: command not found: compdef
-klukas@mac-studio ~ % cd /Users/klukas/Documents/Development/json-view/.github/workflows
-klukas@mac-studio workflows % ls
-release.yml
-klukas@mac-studio workflows % ls
-release.yml
-klukas@mac-studio workflows % cd ..
-klukas@mac-studio .github % ls
-workflows
-klukas@mac-studio .github % cd ..
-klukas@mac-studio json-view % ls
-CMakeLists.txt	Makefile	TODO.md		doc		include		src
-LICENSE		README.md	build		examples	scripts
-klukas@mac-studio json-view % find . -name *.json
-zsh: no matches found: *.json
-klukas@mac-studio json-view % find . -name "*.json"
-./examples/invalid.json
-./examples/test.json
-./build/compile_commands.json
-./build/_deps/tvision-subbuild/CMakeFiles/tvision-populate.dir/Labels.json
-./build/.cmake/api/v1/reply/index-2025-09-20T07-48-01-0430.json
-./build/.cmake/api/v1/reply/directory-.-Debug-58041a223ccf927d0ec9.json
-./build/.cmake/api/v1/reply/cache-v2-bb78fa0220782ace695c.json
-./build/.cmake/api/v1/reply/toolchains-v1-0ab290226cc375de4302.json
-
-## macOS Configuration for `json-view-app`
-
-A quick note for macOS users. The `json-view-app` uses `Alt` key combinations for menu access and shortcuts (e.g., `Alt+F` for the File menu), which is a common convention in terminal applications on Linux and Windows.
-
-### The Issue: `Option` vs. `Alt`
-
-On macOS, the `Option` key (⌥) has a different primary purpose: it's used to type special characters and accents (e.g., `Option+P` types `π`). It does not, by default, behave like the `Alt` key on other systems, so hotkeys in `json-view-app` won't work out of the box.
-
-### The Solution: Enable "Option as Meta"
-
-To fix this, you must configure your terminal to treat the `Option` key as a "Meta" key, which sends the correct signals for `Alt`-based shortcuts.
-
-#### Visual Studio Code (Integrated Terminal)
-
-1.  Open VS Code Settings (`⌘,`).
-2.  Search for `macOptionIsMeta`.
-3.  Enable the setting **Terminal > Integrated: Mac Option Is Meta**.
-
-#### macOS Terminal.app
-
-1.  Open Terminal and go to `Terminal` > `Settings...`.
-2.  Select the `Profiles` tab and choose your default profile.
-3.  Go to the `Keyboard` tab.
-4.  Check the box for **"Use Option as Meta key"**.
-
-### The Trade-Off and How to Type Special Characters
-
-Enabling this setting creates a trade-off: you gain `Alt` key functionality in the terminal, but you lose the ability to type special characters directly with the `Option` key.
-
-If you still need to insert a special character, you can use the macOS Character Viewer:
-
-1.  Press `Control + Command + Space`.
-2.  Search for the character you need (e.g., "pi").
-3.  Double-click it to insert it at your cursor's location.
-
-
-./build/.cmake/api/v1/reply/target-json-view-Debug-919bd6b9fb7266f6b13b.json
-./build/.cmake/api/v1/reply/target-json-view-app-Debug-f7d807f7edeab60fc48d.json
-./build/.cmake/api/v1/reply/directory-_deps.tvision-build.test-Debug-ede26d14a8f98b64bf28.json
-./build/.cmake/api/v1/reply/cmakeFiles-v1-adbb883dbc5e190a9f25.json
-./build/.cmake/api/v1/reply/directory-_deps.tvision-build.examples-Debug-fefc71a422b308e3810c.json
-./build/.cmake/api/v1/reply/target-json_view_core-Debug-abb1526ab26c9626554b.json
-./build/.cmake/api/v1/reply/directory-_deps.tvision-build.source-Debug-07218dba26b09d34f2bf.json
-./build/.cmake/api/v1/reply/target-tvision-Debug-7d3f2ef0dab3faac0f4e.json
-./build/.cmake/api/v1/reply/directory-_deps.tvision-build-Debug-368ef24e24b94a5294ef.json
-./build/.cmake/api/v1/reply/codemodel-v2-7a36463bea793fc47794.json
-./build/.cmake/api/v1/reply/directory-_deps.tvision-build.examples.avscolor-Debug-5f7cc3771144d48176f7.json
-./build/.cmake/api/v1/query/client-vscode/query.json
-klukas@mac-studio json-view % json-view-app examples/test.json 
-
-
-
-
-
   File  Edit  Search  View  Help                                                                                    
  ┌─────────────┐ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
  │ Open     F2 │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -197,6 +119,43 @@ klukas@mac-studio json-view % json-view-app examples/test.json
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
  F2 Open  F3 Find  Ctrl+Q Quit                                                                                      
 ```
+
+## macOS Configuration for `json-view-app`
+
+A quick note for macOS users. The `json-view-app` uses `Alt` key combinations for menu access and shortcuts (e.g., `Alt+F` for the File menu), which is a common convention in terminal applications on Linux and Windows.
+
+### The Issue: `Option` vs. `Alt`
+
+On macOS, the `Option` key (⌥) has a different primary purpose: it's used to type special characters and accents (e.g., `Option+P` types `π`). It does not, by default, behave like the `Alt` key on other systems, so hotkeys in `json-view-app` won't work out of the box.
+
+### The Solution: Enable "Option as Meta"
+
+To fix this, you must configure your terminal to treat the `Option` key as a "Meta" key, which sends the correct signals for `Alt`-based shortcuts.
+
+#### Visual Studio Code (Integrated Terminal)
+
+1.  Open VS Code Settings (`⌘,`).
+2.  Search for `macOptionIsMeta`.
+3.  Enable the setting **Terminal > Integrated: Mac Option Is Meta**.
+
+#### macOS Terminal.app
+
+1.  Open Terminal and go to `Terminal` > `Settings...`.
+2.  Select the `Profiles` tab and choose your default profile.
+3.  Go to the `Keyboard` tab.
+4.  Check the box for **"Use Option as Meta key"**.
+
+### The Trade-Off and How to Type Special Characters
+
+Enabling this setting creates a trade-off: you gain `Alt` key functionality in the terminal, but you lose the ability to type special characters directly with the `Option` key.
+
+If you still need to insert a special character, you can use the macOS Character Viewer:
+
+1.  Press `Control + Command + Space`.
+2.  Search for the character you need (e.g., "pi").
+3.  Double-click it to insert it at your cursor's location.
+
+
 
 ## Features
 
